@@ -16,7 +16,9 @@ Every new session starts with a database seeded by the **seed sample**, so every
 ## 2. Non-negotiables
 
 - **.NET 10**, Blazor Web App with **Interactive Server** render mode. No WebAssembly.
-- **No external NuGet packages**, with ONE approved exception: `Microsoft.Data.Sqlite` (Microsoft's own ADO.NET provider), referenced by `SqliteViz.Core` only. It brings `SQLitePCLRaw.bundle_e_sqlite3` transitively; use its `SQLitePCL.raw` API directly for the authorizer, interrupt, limits, and statement splitting. Don't add any other `SQLitePCLRaw` bundle, and nothing else (no Dapper, no EF Core, no UI kits, no test frameworks, no JSON libs). Pin to the latest stable version compatible with .NET 10. The bundled native library must cover **linux-arm64** (the dev machine is a Raspberry Pi) and x64.
+- **No external NuGet packages**, with ONE approved exception: `Microsoft.Data.Sqlite` (Microsoft's own ADO.NET provider), referenced by `SqliteViz.Core` only. It brings `SQLitePCLRaw.bundle_e_sqlite3` transitively; use its `SQLitePCL.raw` API directly for the authorizer, interrupt, limits, and statement splitting. Don't add any other `SQLitePCLRaw` bundle, and nothing else (no Dapper, no EF Core, no UI kits, no test frameworks, no JSON libs). Pin to the latest stable version compatible with .NET 10 (currently 10.0.12, which bundles SQLite 3.53.3). The bundled native library must cover **linux-arm64** (the dev machine is a Raspberry Pi) and x64.
+- SQLitePCLRaw 2.1.x does not wrap `sqlite3_error_offset`, so `Session/NativeMethods.cs` P/Invokes it from the same bundled `e_sqlite3` library (no extra package) and falls back to "no column" if the entry point is missing.
+- The bundled build has `DQS=0` (double-quoted strings are identifiers only, so samples use single quotes for text) and `DEFAULT_RECURSIVE_TRIGGERS` (a trigger that updates its own table must not fire itself again).
 - **Minimum SQLite version 3.45** (needed for `RIGHT`/`FULL JOIN` 3.39, `->`/`->>` and `unixepoch` 3.38, `timediff` 3.43, `concat` 3.44, `jsonb` 3.45). At startup, log `sqlite_version()` and fail fast with a clear message if it is lower. A test asserts the version.
 - **The database is in memory only.** Open it with `Data Source=:memory:`. Nothing is ever written to disk: `temp_store = MEMORY`, no `ATTACH`, no `VACUUM INTO`, no extension loading.
 - **One database per circuit.** Each Blazor circuit owns one open `SqliteConnection` for its lifetime. Users never see each other's data.
@@ -72,7 +74,7 @@ There is no HTTP API: in Blazor Server the component calls `SqlRunner` directly.
 
 ## 6. Statement splitting and execution (SqliteViz.Core/Runner)
 
-1. **Split** with `raw.sqlite3_prepare_v3` in a loop over the tail. Never split on `;` by hand: it breaks string literals, comments, and `CREATE TRIGGER ... BEGIN ...; END;` bodies. Each piece records its text, start offset, and **start line** (1-based) in the user's script. Skip empty or comment-only tails.
+1. **Split** with SQLite's own tokenizer: `SqlSplitter` ends a piece at the first `;` where `raw.sqlite3_complete` says the text so far is a complete statement, then the runner prepares each piece on its own with `raw.sqlite3_prepare_v3`. (A split that prepares the whole script up front cannot work: `CREATE TABLE t ...; INSERT INTO t ...` fails to prepare the INSERT before the CREATE has run.) Never split on `;` by hand: it breaks string literals, comments, and `CREATE TRIGGER ... BEGIN ...; END;` bodies. Each piece records its text, start offset, and **start line and column** (1-based) of its first token in the user's script. Skip empty or comment-only pieces. The same splitter finds the statement under the cursor for Ctrl+Shift+Enter.
 2. **Run each statement** in order, in autocommit mode unless the user wrote `BEGIN`. The runner never wraps the script in its own transaction.
 3. **Result per statement**:
 
@@ -102,7 +104,7 @@ public sealed record RunResult(
 6. **Limits**:
    - **Timeout 5 s** per run. A timer calls `raw.sqlite3_interrupt(handle)` (thread-safe), which makes the running statement fail with `SQLITE_INTERRUPT`. It is reported as "Query timed out after 5 s". This is what stops runaway recursive CTEs and cross joins.
    - At most **1,000 rows kept** per statement (`Truncated = true`, `TotalRows` keeps counting up to 100,000, then stops stepping).
-   - At most **50 statements** per run.
+   - At most **100 statements** per run. (Originally 50, but the seed alone has 58 statements: 17 drops, 15 tables, 5 indexes, 2 views, 3 triggers, 14 inserts, BEGIN/COMMIT. It has to run under the limit because users can load and run it like any other sample.)
 7. **Open transactions**: if a run ends inside a transaction (`sqlite3_get_autocommit == 0`), the UI shows a "Transaction open" badge. Don't commit or roll back on the user's behalf. Reset DB clears it.
 
 ## 7. Guard (SqliteViz.Core/Guard)
@@ -117,11 +119,13 @@ The authorizer (`raw.sqlite3_set_authorizer`) is the security boundary for this 
 | `SQLITE_PRAGMA` | pragma name not in the allowlist, or a write to a read-only pragma | "PRAGMA x is not allowed here." |
 | `SQLITE_FUNCTION` | `load_extension`, `readfile`, `writefile`, `edit`, `fts3_tokenizer` | "Loading extensions and file access are disabled." |
 | `SQLITE_CREATE_VTABLE` | module not in {`fts5`, `rtree`} | "Only fts5 and rtree virtual tables are allowed." |
-| `SQLITE_INSERT`/`SQLITE_UPDATE`/`SQLITE_DELETE` | target is `sqlite_schema`/`sqlite_master` | "The schema table is read-only." |
+| `SQLITE_INSERT`/`SQLITE_UPDATE`/`SQLITE_DELETE` | target is `sqlite_schema`/`sqlite_master`, and the top-level statement is INSERT/UPDATE/DELETE/REPLACE/WITH | "The schema table is read-only." |
+
+Notes on the schema-table rule: `CREATE`, `DROP`, `ALTER`, `ANALYZE` and `PRAGMA optimize` write `sqlite_schema` as part of their own work, and SQLite asks the authorizer for those writes too, so the rule only applies when the user's statement is DML (the runner sets `DbSession.DmlStatement` before each prepare). `SQLITE_DBCONFIG_DEFENSIVE` rejects direct writes before the authorizer is asked, and its "table sqlite_master may not be modified" message is mapped to the friendly one (`SqlGuard.FriendlyMessage`). Trigger bodies are authorized when the trigger fires, as part of the statement that fires it.
 
 **Pragma allowlist**:
 - Read and write: `foreign_keys`, `defer_foreign_keys`, `recursive_triggers`, `case_sensitive_like`, `user_version`, `analysis_limit`.
-- Read only (no `= value`): `table_info`, `table_xinfo`, `table_list`, `index_list`, `index_info`, `index_xinfo`, `foreign_key_list`, `foreign_key_check`, `integrity_check`, `quick_check`, `database_list`, `collation_list`, `function_list`, `pragma_list`, `module_list`, `compile_options`, `encoding`, `page_size`, `page_count`, `freelist_count`, `schema_version`, `application_id`, `max_page_count`, `temp_store`.
+- Read only (no `= value`): `table_info`, `table_xinfo`, `table_list`, `index_list`, `index_info`, `index_xinfo`, `foreign_key_list`, `foreign_key_check`, `integrity_check`, `quick_check`, `database_list`, `collation_list`, `function_list`, `pragma_list`, `module_list`, `compile_options`, `encoding`, `page_size`, `page_count`, `freelist_count`, `schema_version`, `application_id`, `max_page_count`, `temp_store`, `data_version` (FTS5 reads it internally, through the authorizer). The inspect pragmas (`table_info(x)`, `integrity_check(N)`...) may take an argument; the setting pragmas may not.
 - Also allowed: `optimize`.
 - Everything else is denied, in particular `writable_schema`, `journal_mode`, `locking_mode`, `temp_store` writes, `max_page_count` writes, `mmap_size`, `cache_size`, `trusted_schema`, and `*_directory`. The table-valued forms (`SELECT * FROM pragma_table_info('orders')`) go through the same check.
 
@@ -161,7 +165,7 @@ The seed is a small store + company domain designed so every relationship type, 
 | Self-reference (hierarchy) | `employees.manager_id` → `employees`, `categories.parent_id` → `categories` |
 | Composite foreign key | `shipment_items (order_id, product_id)` → `order_items` |
 | Graph data | `cities` + `routes (from_city, to_city, km)` with a cycle, for recursive path search |
-| FK actions | `CASCADE`, `SET NULL`, `RESTRICT`, `NO ACTION` each used at least once |
+| FK actions | `CASCADE`, `SET NULL`, `RESTRICT` (`orders.customer_id`, `order_items.product_id`), `NO ACTION` (`shipment_items`) each used at least once. A self-referencing FK must not be `RESTRICT`: `DROP TABLE` deletes row by row, so re-running the seed would fail (`categories.parent_id` is `CASCADE`). |
 | Constraints | `NOT NULL`, `UNIQUE`, `CHECK` (incl. `CHECK (json_valid(attributes))`), `DEFAULT`, `COLLATE NOCASE` |
 | Table kinds | `INTEGER PRIMARY KEY` (rowid alias), `AUTOINCREMENT`, `WITHOUT ROWID`, `STRICT` |
 | Generated columns | `VIRTUAL` (`order_items.line_total`) and `STORED` |
@@ -169,7 +173,7 @@ The seed is a small store + company domain designed so every relationship type, 
 | Dates | ISO-8601 `TEXT` for dates, one Unix-epoch `INTEGER` column for contrast |
 | Indexes | single-column, composite, `UNIQUE`, partial (`WHERE status = 'open'`), expression (`lower(email)`), covering |
 | Views | `v_order_totals`, `v_employee_tree` |
-| Triggers | `AFTER UPDATE` audit trigger into `audit_log`, `updated_at` touch trigger, `BEFORE DELETE` guard with `RAISE(ABORT, ...)` |
+| Triggers | `AFTER UPDATE` audit trigger into `audit_log`, `updated_at` touch trigger (`AFTER UPDATE OF <every column but updated_at>`, so it does not re-fire itself with recursive triggers on), `BEFORE DELETE` guard with `RAISE(ABORT, ...)` |
 | Edge-case data | a customer with no orders, a product never ordered, a department with no employees, `NULL`s in optional columns, duplicate-looking names differing by case |
 
 ## 11. Built-in samples
@@ -227,7 +231,7 @@ Finish and test each phase before starting the next.
 - Always use parameters (`$name`) for host-issued SQL that includes values. Identifiers (table names for the schema reader) are quoted with `"` + doubled quotes, never concatenated raw.
 - No static mutable state except cached read-only metadata (function list, samples).
 - Dispose every `SqliteCommand`/`SqliteDataReader`/native statement; finalize anything prepared with `raw.sqlite3_prepare_v3`.
-- Build and test: `dotnet build`, then `dotnet run --project tests/SqliteViz.Tests` (optional name filter as the first argument). Run the app with `dotnet run --project src/SqliteViz.Web`.
+- Build and test: `dotnet build`, then `dotnet run --project tests/SqliteViz.Tests` (optional name filter as the first argument). Run the app with `dotnet run --project src/SqliteViz.Web` (http://localhost:5110). To check a sample's comments against real output: `dotnet run --project tests/SqliteViz.Tests -- --dump <sample-id>`.
 - Tests (plain console runner, exits non-zero on failure) cover: the SQLite version and math functions; splitter (strings with `;`, comments, trigger bodies, line numbers); each blocked action is rejected with its friendly message (`ATTACH`, `DETACH`, `VACUUM`, `VACUUM INTO`, `load_extension`, `PRAGMA writable_schema=1`, `journal_mode`, writes to `sqlite_schema`, disallowed pragmas through `pragma_*` functions); allowed pragmas work; timeout on an infinite recursive CTE returns an error instead of hanging; row truncation; stop-on-first-error keeps earlier results; error line mapping; two sessions are isolated; Reset DB restores the seed; every sample runs on a fresh seeded database.
 - Keep commits and changes small; update this file when a rule, the guard, or the seed schema changes.
 

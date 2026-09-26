@@ -26,6 +26,35 @@
 
     <section class="editor-pane">
         <CodeEditor @ref="editor" Completions="ApiCatalog.Completions" Dark="dark" OnRun="RunAsync" OnReady="OnEditorReadyAsync" />
+        @if (SampleCatalog.Documentation is not null)
+        {
+            <aside class="side docs">
+                <div class="docs-head">
+                    <h3>Documentation</h3>
+                    <button @onclick="LoadDocumentationAsync" title="Load the runnable API tour into the editor">Open in editor</button>
+                </div>
+                @foreach (var section in docSections)
+                {
+                    @if (section.Heading is not null)
+                    {
+                        <h4>@section.Heading</h4>
+                    }
+                    @foreach (var note in section.Notes)
+                    {
+                        <p class="docs-note">@note</p>
+                    }
+                    @if (section.Lines.Count > 0)
+                    {
+                        <div class="docs-code">
+                            @foreach (var line in section.Lines)
+                            {
+                                <div>@line.Code<span class="comment">@line.Comment</span></div>
+                            }
+                        </div>
+                    }
+                }
+            </aside>
+        }
     </section>
 
     @if (result is { CompileErrors.Count: > 0 })
@@ -141,6 +170,8 @@
     private string status = "";
     private CancellationTokenSource? playCts;
 
+    private IReadOnlyList<DocSection> docSections = [];
+
     private Frame Frame => playback?.Current ?? Frame.Empty;
 
     private double FrameMs => BaseFrameMs / speed;
@@ -151,6 +182,9 @@
     private static string Inv(double value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     private double Percent(int frame) => playback is { LastFrame: > 0 } p ? 100.0 * frame / p.LastFrame : 0;
+
+    protected override void OnInitialized() =>
+        docSections = SampleCatalog.Documentation is { } docs ? ParseDocumentation(docs.Code) : [];
 
     private async Task OnEditorReadyAsync(bool restored)
     {
@@ -164,6 +198,46 @@
         StopPlayback();
         await editor.SetValueAsync(sample.Code);
         await editor.FocusAsync();
+    }
+
+    private async Task LoadDocumentationAsync()
+    {
+        if (SampleCatalog.Documentation is not { } docs || editor is null) return;
+        StopPlayback();
+        await editor.SetValueAsync(docs.Code);
+        await editor.FocusAsync();
+    }
+
+    private sealed record DocLine(string Code, string Comment);
+
+    private sealed record DocSection(string? Heading, List<string> Notes, List<DocLine> Lines);
+
+    private static readonly System.Text.RegularExpressions.Regex SectionHeading = new(@"^//\s*=+\s*(.*?)\s*=+\s*$");
+
+    /// <summary>
+    /// Splits the documentation script into sections at its "// ===== Title =====" lines.
+    /// Comment-only lines become notes; code lines keep their trailing comment apart so it can be dimmed.
+    /// </summary>
+    private static List<DocSection> ParseDocumentation(string code)
+    {
+        var sections = new List<DocSection> { new(null, [], []) };
+        // The first line is the sample title ("// Documentation"), already shown as the panel heading.
+        foreach (var raw in code.Split('\n').Skip(1))
+        {
+            var line = raw.TrimEnd();
+            if (line.Length == 0) continue;
+            var heading = SectionHeading.Match(line);
+            if (heading.Success)
+                sections.Add(new(heading.Groups[1].Value, [], []));
+            else if (line.StartsWith("//", StringComparison.Ordinal))
+                sections[^1].Notes.Add(line[2..].Trim());
+            else
+            {
+                var comment = line.IndexOf(" //", StringComparison.Ordinal);
+                sections[^1].Lines.Add(comment < 0 ? new(line, "") : new(line[..comment], line[comment..]));
+            }
+        }
+        return sections;
     }
 
     private async Task RunAsync()

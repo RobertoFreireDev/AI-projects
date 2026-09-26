@@ -135,19 +135,67 @@ code {
     flex: 1;
 }
 
-/* The editor pane is resizable by dragging its bottom-right corner. */
+/* The editor pane is resizable by dragging its bottom-right corner; the documentation sits beside the editor. */
 .editor-pane {
     height: 38vh;
     min-height: 120px;
     max-height: 85vh;
     resize: vertical;
     overflow: hidden;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 420px;
     border-bottom: 1px solid var(--border);
 }
 
 .editor-host {
     width: 100%;
     height: 100%;
+    min-height: 0;
+}
+
+.docs {
+    min-height: 0;
+}
+
+.docs-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.docs-head h3 {
+    margin: 4px 0;
+}
+
+.docs-head button {
+    font-size: 12px;
+    padding: 2px 8px;
+}
+
+.docs h4 {
+    font-size: 13px;
+    margin: 14px 0 4px;
+}
+
+.docs-note {
+    color: var(--fg-muted);
+    font-size: 13px;
+    margin: 0 0 4px;
+}
+
+.docs-code {
+    font: 12px/1.5 ui-monospace, monospace;
+    white-space: pre;
+    overflow-x: auto;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 8px;
+}
+
+.docs-code .comment {
+    color: var(--fg-muted);
 }
 
 .ace-active-op {
@@ -515,6 +563,12 @@ code {
 @media (max-width: 900px) {
     .viz {
         grid-template-columns: minmax(0, 1fr);
+    }
+
+    .editor-pane {
+        height: 70vh;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
     }
 
     .side {
