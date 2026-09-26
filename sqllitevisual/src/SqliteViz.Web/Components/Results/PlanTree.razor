@@ -1,0 +1,31 @@
+@* EXPLAIN QUERY PLAN as nested lists: SCAN / temp b-tree / automatic index warn, SEARCH is good, covering is best. *@
+<div class="plan">
+    <ul class="plan-tree">
+        @RenderNode(Root)
+    </ul>
+    <p class="plan-legend">
+        <span class="tag tag-best">covering index</span>
+        <span class="tag tag-good">index search</span>
+        <span class="tag tag-warn">scan / temp b-tree / automatic index</span>
+    </p>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public PlanNode Root { get; set; } = null!;
+
+    private RenderFragment RenderNode(PlanNode node) => __builder =>
+    {
+        <li>
+            <span class="plan-node tag-@node.Tag.ToString().ToLowerInvariant()">@node.Detail</span>
+            @if (node.Children.Count > 0)
+            {
+                <ul>
+                    @foreach (var child in node.Children)
+                    {
+                        @RenderNode(child)
+                    }
+                </ul>
+            }
+        </li>
+    };
+}

@@ -1,0 +1,101 @@
+@* ER diagram as SVG. The layout is computed in Core (ErLayout); this only draws it. *@
+<div class="er">
+    <div class="er-toolbar">
+        <span class="muted small">
+            Tables are layered by foreign-key depth: referenced tables on the left.
+            <span class="legend-item"><svg width="28" height="12"><line x1="0" y1="6" x2="28" y2="6" class="er-edge" /><line x1="4" y1="1" x2="4" y2="11" class="er-mark" /><line x1="8" y1="1" x2="8" y2="11" class="er-mark" /></svg> one</span>
+            <span class="legend-item"><svg width="28" height="12"><line x1="0" y1="6" x2="28" y2="6" class="er-edge" /><line x1="16" y1="6" x2="28" y2="0" class="er-mark" /><line x1="16" y1="6" x2="28" y2="12" class="er-mark" /></svg> many</span>
+            <span class="legend-item"><svg width="16" height="12"><circle cx="8" cy="6" r="3.5" class="er-optional" /></svg> optional</span>
+        </span>
+        <span class="spacer"></span>
+        <button class="icon-btn" @onclick="() => Zoom(-0.1)" title="Zoom out">−</button>
+        <span class="muted small zoom">@((int)Math.Round(_zoom * 100))%</span>
+        <button class="icon-btn" @onclick="() => Zoom(0.1)" title="Zoom in">+</button>
+        <button class="icon-btn" @onclick="() => _zoom = 1" title="Actual size">1:1</button>
+    </div>
+
+    @if (_diagram.Boxes.Count == 0)
+    {
+        <div class="empty"><p>No tables.</p></div>
+    }
+    else
+    {
+        <div class="er-canvas">
+            <svg width="@F(_diagram.Width * _zoom)" height="@F(_diagram.Height * _zoom)"
+                 viewBox="0 0 @F(_diagram.Width) @F(_diagram.Height)" role="img" aria-label="Entity relationship diagram">
+                @foreach (var edge in _diagram.Edges)
+                {
+                    var hot = _hover is not null && (edge.FromTable == _hover || edge.ToTable == _hover);
+                    <g class="er-link @(hot ? "hot" : "")">
+                        <title>@edge.Label</title>
+                        <path d="@edge.Path" class="er-edge" />
+                        @* Parent end: exactly one (two bars). *@
+                        <line x1="@F(edge.ToX + edge.ToDirection * 7)" y1="@F(edge.ToY - 6)" x2="@F(edge.ToX + edge.ToDirection * 7)" y2="@F(edge.ToY + 6)" class="er-mark" />
+                        <line x1="@F(edge.ToX + edge.ToDirection * 11)" y1="@F(edge.ToY - 6)" x2="@F(edge.ToX + edge.ToDirection * 11)" y2="@F(edge.ToY + 6)" class="er-mark" />
+                        @* Child end: crow's foot for many, a bar for one; a circle when the FK may be NULL. *@
+                        @if (edge.OneToOne)
+                        {
+                            <line x1="@F(edge.FromX + edge.FromDirection * 8)" y1="@F(edge.FromY - 6)" x2="@F(edge.FromX + edge.FromDirection * 8)" y2="@F(edge.FromY + 6)" class="er-mark" />
+                        }
+                        else
+                        {
+                            <line x1="@F(edge.FromX + edge.FromDirection * 12)" y1="@F(edge.FromY)" x2="@F(edge.FromX)" y2="@F(edge.FromY - 6)" class="er-mark" />
+                            <line x1="@F(edge.FromX + edge.FromDirection * 12)" y1="@F(edge.FromY)" x2="@F(edge.FromX)" y2="@F(edge.FromY + 6)" class="er-mark" />
+                        }
+                        @if (edge.Optional)
+                        {
+                            <circle cx="@F(edge.FromX + edge.FromDirection * 18)" cy="@F(edge.FromY)" r="3.5" class="er-optional" />
+                        }
+                    </g>
+                }
+                @foreach (var box in _diagram.Boxes)
+                {
+                    <g class="er-box @(box.IsVirtual ? "virtual" : "") @(_hover == box.Table ? "hot" : "")"
+                       @onmouseenter="() => _hover = box.Table" @onmouseleave="() => _hover = null">
+                        <rect x="@F(box.X)" y="@F(box.Y)" width="@F(box.Width)" height="@F(box.Height)" rx="6" class="er-body" />
+                        <path d="@HeaderPath(box)" class="er-header" />
+                        <text x="@F(box.X + 10)" y="@F(box.Y + 17)" class="er-title">@box.Table</text>
+                        @for (var i = 0; i < box.Columns.Count; i++)
+                        {
+                            var col = box.Columns[i];
+                            var y = box.RowY(i) + 4;
+                            @* Wrapped in <g> so Razor reads <text> as SVG, not as its own <text> tag. *@
+                            <g>
+                                <text x="@F(box.X + 8)" y="@F(y)" class="er-key">@(col.PrimaryKey ? "PK" : col.ForeignKey ? "FK" : "")</text>
+                                <text x="@F(box.X + 30)" y="@F(y)" class="er-col @(col.PrimaryKey ? "pk" : "")">@col.Name</text>
+                                <text x="@F(box.X + box.Width - 8)" y="@F(y)" class="er-type" text-anchor="end">@col.Type.ToLowerInvariant()</text>
+                            </g>
+                        }
+                    </g>
+                }
+            </svg>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public SchemaSnapshot Schema { get; set; } = null!;
+
+    private SchemaSnapshot? _laidOut;
+    private ErDiagram _diagram = ErDiagram.Empty;
+    private double _zoom = 1;
+    private string? _hover;
+
+    protected override void OnParametersSet()
+    {
+        if (ReferenceEquals(_laidOut, Schema)) return;
+        _laidOut = Schema;
+        _diagram = ErLayout.Compute(Schema);
+    }
+
+    private void Zoom(double delta) => _zoom = Math.Clamp(Math.Round(_zoom + delta, 1), 0.3, 2.0);
+
+    private static string HeaderPath(ErBox b)
+    {
+        // Rounded top corners only.
+        var h = ErLayout.HeaderHeight;
+        return $"M {F(b.X)} {F(b.Y + h)} V {F(b.Y + 6)} Q {F(b.X)} {F(b.Y)} {F(b.X + 6)} {F(b.Y)} H {F(b.X + b.Width - 6)} Q {F(b.X + b.Width)} {F(b.Y)} {F(b.X + b.Width)} {F(b.Y + 6)} V {F(b.Y + h)} Z";
+    }
+
+    private static string F(double v) => v.ToString("0.#", CultureInfo.InvariantCulture);
+}

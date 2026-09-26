@@ -1,0 +1,28 @@
+<article class="card error" @onclick="() => OnSelect.InvokeAsync(Error)">
+    <header class="card-head">
+        @if (Error.StatementIndex is { } index)
+        {
+            <span class="card-index">#@(index + 1)</span>
+        }
+        <span class="kind kind-error">Error</span>
+        <span class="muted">line @Error.Line@(Error.Column is { } col ? $", column {col}" : "")</span>
+        <span class="spacer"></span>
+        <span class="muted" title="SQLite result code">code @Error.Code</span>
+    </header>
+    @if (Error.Sql is { } sql)
+    {
+        <pre class="card-sql">@sql</pre>
+    }
+    <div class="card-body">
+        <p class="error-message">@Error.Message</p>
+        @if (Error.StatementIndex is > 0)
+        {
+            <p class="muted small">The statements before this one ran and their changes are kept. The run stopped here.</p>
+        }
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public SqlError Error { get; set; } = null!;
+    [Parameter] public EventCallback<SqlError> OnSelect { get; set; }
+}

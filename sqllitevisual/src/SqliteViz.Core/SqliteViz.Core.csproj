@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <!-- The one approved package. Brings SQLitePCLRaw.bundle_e_sqlite3 (linux-arm64 + x64 natives). -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Samples\*.sql" LogicalName="Samples.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SqliteViz.Tests" />
+  </ItemGroup>
+
+</Project>

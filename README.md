@@ -10,3 +10,8 @@ html only
 
 dotnet run --project tests/AlgoViz.Tests
 dotnet run --project src/AlgoViz.Web     # http://localhost:5102
+
+### Sql lite visual
+
+dotnet run --project tests/SqliteViz.Tests
+dotnet run --project src/SqliteViz.Web     # http://localhost:5110

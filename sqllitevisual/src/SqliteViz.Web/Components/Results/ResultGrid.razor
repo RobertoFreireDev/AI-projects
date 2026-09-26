@@ -1,0 +1,84 @@
+@* Rows with a sticky header. Cells are colored by the storage class of each value, and NULL is a badge. *@
+<div class="grid-wrap">
+    <table class="grid">
+        <thead>
+            <tr>
+                <th class="rownum">#</th>
+                @for (var c = 0; c < Statement.Columns.Count; c++)
+                {
+                    var column = Statement.Columns[c];
+                    <th class="@(IsNumeric(c) ? "num" : "")" title="@ColumnTitle(column)">
+                        <span class="col-name">@column.Name</span>
+                        @if (column.DeclaredType is { Length: > 0 } type)
+                        {
+                            <span class="col-type">@type.ToLowerInvariant()</span>
+                        }
+                    </th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @for (var i = 0; i < Statement.Rows.Count; i++)
+            {
+                var row = Statement.Rows[i];
+                <tr>
+                    <td class="rownum">@(i + 1)</td>
+                    @foreach (var cell in row.Cells)
+                    {
+                        @if (cell.Class == StorageClass.Null)
+                        {
+                            <td class="c-null"><span class="null-badge">NULL</span></td>
+                        }
+                        else
+                        {
+                            <td class="c-@cell.Class.ToString().ToLowerInvariant() @(cell.Truncated ? "cut" : "")"
+                                title="@CellTitle(cell)">@cell.Text</td>
+                        }
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+@if (Statement.Rows.Count == 0)
+{
+    <p class="message muted">No rows.</p>
+}
+@if (Statement.Truncated)
+{
+    <p class="truncated">
+        Showing the first @Format.Count(Statement.Rows.Count) of
+        @if (Statement.TotalCapped)
+        {
+            <text>more than @Format.Count(Statement.TotalRows) rows (SQLite stopped after that many).</text>
+        }
+        else
+        {
+            <text>@Format.Count(Statement.TotalRows) rows.</text>
+        }
+    </p>
+}
+
+@code {
+    [Parameter, EditorRequired] public StatementResult Statement { get; set; } = null!;
+
+    /// <summary>True when every non-NULL value shown in the column is INTEGER or REAL (header aligns right like the values).</summary>
+    private bool IsNumeric(int column)
+    {
+        var any = false;
+        foreach (var row in Statement.Rows)
+        {
+            var cls = row.Cells[column].Class;
+            if (cls == StorageClass.Null) continue;
+            if (cls is not (StorageClass.Integer or StorageClass.Real)) return false;
+            any = true;
+        }
+        return any;
+    }
+
+    private static string CellTitle(ResultCell cell) =>
+        cell.Class.ToString().ToUpperInvariant() + (cell.Truncated ? " (shortened for display)" : "");
+
+    private static string ColumnTitle(ResultColumn column) =>
+        column.DeclaredType is { Length: > 0 } type ? $"declared type: {type}" : "no declared type (expression)";
+}

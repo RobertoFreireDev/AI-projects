@@ -1,0 +1,297 @@
+@page "/"
+@implements IAsyncDisposable
+@inject DbSession Session
+@inject IJSRuntime JS
+
+<PageTitle>SqliteViz</PageTitle>
+
+<div class="app" data-theme="@(_dark ? "dark" : "light")">
+    <header class="topbar">
+        <div class="brand">
+            <span class="logo" aria-hidden="true"></span>
+            <span class="name">SqliteViz</span>
+            <span class="version" title="Bundled SQLite library">SQLite @SqliteEnvironment.Info.Version</span>
+        </div>
+
+        <div class="actions">
+            <button class="btn primary" @onclick="RunAllAsync" disabled="@_busy" title="Run the whole script (Ctrl+Enter)">
+                ▶ Run <kbd>Ctrl+Enter</kbd>
+            </button>
+            <button class="btn" @onclick="RunStatementAsync" disabled="@_busy" title="Run the selection, or the statement under the cursor (Ctrl+Shift+Enter)">
+                Run statement <kbd>Ctrl+Shift+Enter</kbd>
+            </button>
+            <select class="select" @bind:get="_sampleChoice" @bind:set="LoadSampleAsync" title="Load a sample into the editor (it does not run it)">
+                <option value="" disabled>Samples…</option>
+                @foreach (var sample in SampleCatalog.All)
+                {
+                    <option value="@sample.Id">@sample.Id[..2] · @sample.Title</option>
+                }
+            </select>
+            <button class="btn danger" @onclick="ResetAsync" disabled="@_busy" title="Throw this database away and re-seed a fresh one">
+                ⟲ Reset DB
+            </button>
+        </div>
+
+        <div class="status">
+            @if (_inTransaction)
+            {
+                <span class="badge warn" title="A transaction is open. COMMIT or ROLLBACK it, or press Reset DB.">Transaction open</span>
+            }
+            @if (_busy)
+            {
+                <span class="running"><span class="spinner"></span>@_busyText</span>
+            }
+            else if (_statusText is not null)
+            {
+                <span class="muted">@_statusText</span>
+            }
+        </div>
+
+        <div class="toggles">
+            <button class="icon-btn" @onclick="ToggleThemeAsync" title="Toggle dark / light">@(_dark ? "☀" : "☾")</button>
+            <button class="icon-btn @(_schemaOpen ? "on" : "")" @onclick="() => _schemaOpen = !_schemaOpen" title="Show or hide the schema panel">▤</button>
+        </div>
+    </header>
+
+    <div class="main">
+        <section class="work">
+            <div class="editor-frame">
+                <div class="editor" @ref="_editorElement"></div>
+            </div>
+
+            <nav class="tabs">
+                <button class="tab @(_tab == Tab.Results ? "active" : "")" @onclick="() => _tab = Tab.Results">
+                    Results
+                    @if (_result is not null)
+                    {
+                        <span class="count">@(_result.Statements.Count + (_result.Error is null ? 0 : 1))</span>
+                    }
+                </button>
+                <button class="tab @(_tab == Tab.Diagram ? "active" : "")" @onclick="() => _tab = Tab.Diagram">ER diagram</button>
+            </nav>
+
+            <div class="results">
+                @if (_tab == Tab.Diagram)
+                {
+                    <ErDiagramView Schema="_schema" />
+                }
+                else if (_result is null)
+                {
+                    <div class="empty">
+                        <p>Write SQL above and press <kbd>Ctrl+Enter</kbd> to run it.</p>
+                        <p class="muted">Each statement gets its own result card here. Click a card to highlight its statement.</p>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var statement in _result.Statements)
+                    {
+                        <ResultCard Statement="statement" Selected="_selected == statement.Index" OnSelect="SelectStatementAsync" />
+                    }
+                    @if (_result.Error is { } error)
+                    {
+                        <ErrorCard Error="error" OnSelect="SelectErrorAsync" />
+                    }
+                    @if (_result.Statements.Count == 0 && _result.Error is null)
+                    {
+                        <div class="empty"><p>Nothing to run: the script has no statements.</p></div>
+                    }
+                }
+            </div>
+        </section>
+
+        @if (_schemaOpen)
+        {
+            <aside class="side">
+                <SchemaPanel Schema="_schema" />
+            </aside>
+        }
+    </div>
+</div>
+
+@code {
+    private enum Tab { Results, Diagram }
+
+    private ElementReference _editorElement;
+    private IJSObjectReference? _editor;
+    private DotNetObjectReference<Home>? _self;
+
+    private RunResult? _result;
+    private SchemaSnapshot _schema = SchemaSnapshot.Empty;
+    private bool _busy;
+    private string _busyText = "";
+    private string? _statusText;
+    private bool _inTransaction;
+    private bool _dark;
+    private bool _schemaOpen = true;
+    private Tab _tab = Tab.Results;
+    private int? _selected;
+    private string _sampleChoice = ""; // stays "", so the dropdown shows "Samples…" again after each pick
+
+    protected override void OnInitialized()
+    {
+        _schema = Session.Schema;
+        _inTransaction = Session.InTransaction;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _editor = await JS.InvokeAsync<IJSObjectReference>("import", "./js/editor.js");
+        _dark = await _editor.InvokeAsync<bool>("prefersDark");
+        _self = DotNetObjectReference.Create(this);
+        var restored = await _editor.InvokeAsync<bool>("init", _editorElement, _self, new
+        {
+            dark = _dark,
+            completions = Core.Completions.SqlCompletions.All.Select(c => new { c.Value, c.Caption, c.Meta, c.Doc }),
+            schemaWords = _schema.Words(),
+        });
+        if (!restored) await _editor.InvokeVoidAsync("setValue", SampleCatalog.Get("00-documentation").Sql);
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public Task RunAllFromEditor() => InvokeAsync(RunAllAsync);
+
+    [JSInvokable]
+    public Task RunStatementFromEditor() => InvokeAsync(RunStatementAsync);
+
+    private async Task RunAllAsync()
+    {
+        if (_editor is null || _busy) return;
+        var script = await _editor.InvokeAsync<string>("getValue");
+        await RunAsync(script, 1, 1);
+    }
+
+    private async Task RunStatementAsync()
+    {
+        if (_editor is null || _busy) return;
+        var target = await _editor.InvokeAsync<EditorTarget?>("getSelectionOrStatementAtCursor");
+        if (target is null) return;
+        if (target.Selection is { } selection)
+        {
+            await RunAsync(selection, target.StartLine, target.StartColumn);
+            return;
+        }
+        var piece = SqlSplitter.StatementAt(target.Script, target.CursorLine, target.CursorColumn);
+        if (piece is null)
+        {
+            _statusText = "No statement under the cursor.";
+            return;
+        }
+        await RunAsync(piece.Sql, piece.Line, piece.Column);
+    }
+
+    private async Task RunAsync(string script, int baseLine, int baseColumn)
+    {
+        _busy = true;
+        _busyText = "Running…";
+        _selected = null;
+        _tab = Tab.Results;
+        StateHasChanged();
+        try
+        {
+            var editor = _editor!;
+            await editor.InvokeVoidAsync("clearHighlight");
+            var result = await SqlRunner.RunAsync(Session, script, baseLine, baseColumn);
+            _result = result;
+            _schema = result.Schema;
+            _inTransaction = result.InTransaction;
+            _statusText = Summary(result);
+
+            var errors = result.Error is { } e
+                ? new[] { new { line = e.Line, endLine = e.EndLine, column = e.Column, message = e.Message } }
+                : [];
+            await editor.InvokeVoidAsync("setAnnotations", (object)errors);
+            await editor.InvokeVoidAsync("setCompletions", _schema.Words());
+        }
+        finally
+        {
+            _busy = false;
+            StateHasChanged(); // also needed when started from Ace (JS-invoked calls do not re-render by themselves)
+        }
+    }
+
+    private async Task ResetAsync()
+    {
+        if (_busy) return;
+        _busy = true;
+        _busyText = "Resetting…";
+        StateHasChanged();
+        try
+        {
+            await Session.ResetAsync();
+            _result = null;
+            _selected = null;
+            _schema = Session.Schema;
+            _inTransaction = Session.InTransaction;
+            _statusText = "Database reset to the seed.";
+            if (_editor is not null)
+            {
+                await _editor.InvokeVoidAsync("setAnnotations", (object)Array.Empty<object>());
+                await _editor.InvokeVoidAsync("clearHighlight");
+                await _editor.InvokeVoidAsync("setCompletions", _schema.Words());
+            }
+        }
+        finally
+        {
+            _busy = false;
+            StateHasChanged(); // also needed when started from Ace (JS-invoked calls do not re-render by themselves)
+        }
+    }
+
+    private async Task LoadSampleAsync(string id)
+    {
+        if (_editor is null || id.Length == 0) return;
+        var sample = SampleCatalog.Get(id);
+        await _editor.InvokeVoidAsync("setValue", sample.Sql);
+        await _editor.InvokeVoidAsync("setAnnotations", (object)Array.Empty<object>());
+        await _editor.InvokeVoidAsync("focus");
+        _statusText = $"Loaded “{sample.Title}”. Press Ctrl+Enter to run it.";
+    }
+
+    private async Task SelectStatementAsync(StatementResult statement)
+    {
+        _selected = statement.Index;
+        if (_editor is not null) await _editor.InvokeVoidAsync("highlightRange", statement.Line, statement.EndLine);
+    }
+
+    private async Task SelectErrorAsync(SqlError error)
+    {
+        _selected = null;
+        if (_editor is not null) await _editor.InvokeVoidAsync("highlightRange", error.Line, error.EndLine);
+    }
+
+    private async Task ToggleThemeAsync()
+    {
+        _dark = !_dark;
+        if (_editor is not null) await _editor.InvokeVoidAsync("setTheme", _dark);
+    }
+
+    private static string Summary(RunResult r)
+    {
+        var count = r.Statements.Count;
+        var text = $"{count} statement{(count == 1 ? "" : "s")} in {Format.Duration(r.Elapsed)}";
+        return r.Error is null ? text : $"{text} · stopped at an error";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_editor is not null)
+        {
+            try
+            {
+                await _editor.InvokeVoidAsync("dispose");
+                await _editor.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit is gone; the browser already dropped the editor.
+            }
+        }
+        _self?.Dispose();
+    }
+
+    private sealed record EditorTarget(
+        string? Selection, int StartLine, int StartColumn, string Script, int CursorLine, int CursorColumn);
+}

@@ -1,0 +1,117 @@
+@* Tables, columns, keys, indexes, views and triggers from the last schema snapshot. Refreshed after every run. *@
+<div class="schema">
+    <div class="schema-head">
+        <h2>Schema</h2>
+        <span class="muted small">@Format.Plural(Schema.Tables.Count, "table") · @Format.Plural(Schema.Views.Count, "view") · @Format.Plural(Schema.Triggers.Count, "trigger")</span>
+    </div>
+    <input class="filter" placeholder="Filter…" @bind="_filter" @bind:event="oninput" />
+
+    @foreach (var table in Schema.Tables.Where(t => Matches(t.Name)))
+    {
+        var fkByColumn = table.ForeignKeys
+            .SelectMany(fk => fk.FromColumns.Select((c, i) => (Column: c, Target: $"{fk.ToTable}.{fk.ToColumns.ElementAtOrDefault(i)}")))
+            .GroupBy(x => x.Column, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => string.Join(", ", g.Select(x => x.Target)), StringComparer.OrdinalIgnoreCase);
+        <details class="obj" open="@IsOpen(table.Name)">
+            <summary @onclick="() => Toggle(table.Name)" @onclick:preventDefault>
+                <span class="obj-name">@table.QualifiedName</span>
+                @if (table.IsVirtual) { <span class="pill">virtual</span> }
+                @if (table.Strict) { <span class="pill">STRICT</span> }
+                @if (table.WithoutRowId) { <span class="pill">WITHOUT ROWID</span> }
+                <span class="spacer"></span>
+                @if (table.RowCount is { } rows) { <span class="muted small" title="rows">@Format.Count(rows)</span> }
+            </summary>
+            <ul class="cols">
+                @foreach (var col in table.Columns.Where(c => c.Hidden != 1))
+                {
+                    <li>
+                        <span class="key">
+                            @if (col.IsPrimaryKey) { <span class="pk" title="primary key @(col.PrimaryKeyPosition)">PK</span> }
+                            @if (fkByColumn.ContainsKey(col.Name)) { <span class="fk" title="foreign key">FK</span> }
+                        </span>
+                        <span class="col-name">@col.Name</span>
+                        <span class="col-type">@(col.DeclaredType.Length > 0 ? col.DeclaredType.ToLowerInvariant() : "any")</span>
+                        @if (col.NotNull) { <span class="flag" title="NOT NULL">nn</span> }
+                        @if (col.GeneratedKind is { } gen) { <span class="flag" title="generated column">@gen.ToLowerInvariant()</span> }
+                        @if (col.DefaultValue is { } dflt) { <span class="flag" title="default">= @dflt</span> }
+                        @if (fkByColumn.TryGetValue(col.Name, out var target)) { <span class="ref">→ @target</span> }
+                    </li>
+                }
+            </ul>
+            @if (table.ForeignKeys.Count > 0)
+            {
+                <div class="sub">Foreign keys</div>
+                <ul class="plain">
+                    @foreach (var fk in table.ForeignKeys)
+                    {
+                        <li>(@string.Join(", ", fk.FromColumns)) → @fk.ToTable (@string.Join(", ", fk.ToColumns))
+                            <span class="muted small">on delete @fk.OnDelete.ToLowerInvariant()@(fk.OnUpdate != "NO ACTION" ? $", on update {fk.OnUpdate.ToLowerInvariant()}" : "")</span>
+                        </li>
+                    }
+                </ul>
+            }
+            @if (table.Indexes.Count > 0)
+            {
+                <div class="sub">Indexes</div>
+                <ul class="plain">
+                    @foreach (var ix in table.Indexes)
+                    {
+                        <li title="@(ix.Sql ?? "created by a constraint")">
+                            <span class="ix-name">@ix.Name</span>
+                            (@string.Join(", ", ix.Columns))
+                            @if (ix.Unique) { <span class="pill">unique</span> }
+                            @if (ix.Partial) { <span class="pill">partial</span> }
+                            @if (ix.Origin == "pk") { <span class="pill">pk</span> }
+                        </li>
+                    }
+                </ul>
+            }
+            @if (table.Sql is { } sql)
+            {
+                <details class="ddl"><summary>CREATE statement</summary><pre>@sql</pre></details>
+            }
+        </details>
+    }
+
+    @if (Schema.Views.Any(v => Matches(v.Name)))
+    {
+        <h3>Views</h3>
+        @foreach (var view in Schema.Views.Where(v => Matches(v.Name)))
+        {
+            <details class="obj">
+                <summary><span class="obj-name">@view.Name</span><span class="spacer"></span><span class="muted small">@Format.Plural(view.Columns.Count, "column")</span></summary>
+                <ul class="plain"><li class="muted">@string.Join(", ", view.Columns)</li></ul>
+                @if (view.Sql is { } sql) { <details class="ddl"><summary>CREATE statement</summary><pre>@sql</pre></details> }
+            </details>
+        }
+    }
+
+    @if (Schema.Triggers.Any(t => Matches(t.Name) || Matches(t.Table)))
+    {
+        <h3>Triggers</h3>
+        @foreach (var trigger in Schema.Triggers.Where(t => Matches(t.Name) || Matches(t.Table)))
+        {
+            <details class="obj">
+                <summary><span class="obj-name">@trigger.Name</span><span class="spacer"></span><span class="muted small">on @trigger.Table</span></summary>
+                @if (trigger.Sql is { } sql) { <pre class="trigger-sql">@sql</pre> }
+            </details>
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public SchemaSnapshot Schema { get; set; } = null!;
+
+    private string _filter = "";
+    private readonly HashSet<string> _open = new(StringComparer.OrdinalIgnoreCase);
+
+    private bool Matches(string name) => _filter.Length == 0 || name.Contains(_filter.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    // Filtering opens every match, so the columns are visible right away.
+    private bool IsOpen(string table) => _open.Contains(table) || _filter.Trim().Length > 0;
+
+    private void Toggle(string table)
+    {
+        if (!_open.Remove(table)) _open.Add(table);
+    }
+}

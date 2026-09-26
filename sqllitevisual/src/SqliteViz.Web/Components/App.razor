@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <title>SqliteViz</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cellipse cx='8' cy='3.5' rx='6' ry='2.5' fill='%232563eb'/%3E%3Cpath d='M2 3.5v9c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5v-9c0 1.4-2.7 2.5-6 2.5S2 4.9 2 3.5z' fill='%231e40af'/%3E%3C/svg%3E" />
+    <ResourcePreloader />
+    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <link rel="stylesheet" href="@Assets["SqliteViz.Web.styles.css"]" />
+    <ImportMap />
+    <HeadOutlet @rendermode="PageRenderMode" />
+</head>
+
+<body>
+    <Routes @rendermode="PageRenderMode" />
+    <ReconnectModal />
+    <script src="lib/ace/ace.js"></script>
+    <script src="lib/ace/ext-language_tools.js"></script>
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+</body>
+
+</html>
+
+@code {
+    // The page talks to Ace from OnAfterRenderAsync, and each circuit gets its own database, so prerendering
+    // would only create a throwaway database.
+    private static readonly IComponentRenderMode PageRenderMode = new InteractiveServerRenderMode(prerender: false);
+}

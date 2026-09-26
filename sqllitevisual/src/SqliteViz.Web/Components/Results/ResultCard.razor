@@ -1,0 +1,70 @@
+@* One card per executed statement: header, SQL, then a grid, a plan tree, or a short message. *@
+<article class="card @(Selected ? "selected" : "")" @onclick="() => OnSelect.InvokeAsync(Statement)">
+    <header class="card-head">
+        <span class="card-index">#@(Statement.Index + 1)</span>
+        <span class="kind kind-@Statement.Kind.ToString().ToLowerInvariant()">@KindLabel</span>
+        <span class="muted">line @Statement.Line</span>
+        <span class="spacer"></span>
+        <span class="muted">@Metrics</span>
+        <span class="muted time">@Format.Duration(Statement.Elapsed)</span>
+    </header>
+    <pre class="card-sql" title="Click to highlight this statement in the editor">@Statement.Sql</pre>
+
+    <div class="card-body">
+        @if (Statement.Plan is { } plan)
+        {
+            <PlanTree Root="plan" />
+        }
+        else if (Statement.Columns.Count > 0)
+        {
+            <ResultGrid Statement="Statement" />
+        }
+        else
+        {
+            <p class="message">@Message</p>
+        }
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public StatementResult Statement { get; set; } = null!;
+    [Parameter] public bool Selected { get; set; }
+    [Parameter] public EventCallback<StatementResult> OnSelect { get; set; }
+
+    private string KindLabel => Statement.Kind switch
+    {
+        StatementKind.QueryPlan => "Query plan",
+        StatementKind.Dml => "DML",
+        StatementKind.Ddl => "DDL",
+        _ => Statement.Kind.ToString(),
+    };
+
+    private string Metrics
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (Statement.RowsAffected is { } affected) parts.Add(Format.Plural(affected, "row") + " affected");
+            if (Statement.Columns.Count > 0 && Statement.Plan is null)
+                parts.Add(Statement.TotalCapped ? $"{Format.Count(Statement.TotalRows)}+ rows" : Format.Plural(Statement.TotalRows, "row"));
+            return string.Join(" · ", parts);
+        }
+    }
+
+    private string Message => Statement.Kind switch
+    {
+        StatementKind.Dml => $"{Format.Plural(Statement.RowsAffected ?? 0, "row")} affected.",
+        StatementKind.Ddl => "Schema updated.",
+        StatementKind.Transaction => SqlText.FirstKeyword(Statement.Sql) switch
+        {
+            "BEGIN" => "Transaction started.",
+            "COMMIT" or "END" => "Transaction committed.",
+            "ROLLBACK" => SqlText.LeadingKeywords(Statement.Sql, 3).Contains("TO") ? "Rolled back to the savepoint." : "Transaction rolled back.",
+            "SAVEPOINT" => "Savepoint created.",
+            "RELEASE" => "Savepoint released.",
+            _ => "Done.",
+        },
+        StatementKind.Pragma => "Pragma set.",
+        _ => "Done.",
+    };
+}
