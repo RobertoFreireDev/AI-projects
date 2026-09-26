@@ -1,0 +1,54 @@
+@* Tree and BinaryTree with the tidy layout from Core. Detached subtrees are drawn faded to the right. *@
+@{
+    var layout = Layout.Tree(State);
+    var positions = layout.Nodes.ToDictionary(t => t.Id);
+    var width = Pad * 2 + Math.Max(1, layout.Width) * Slot;
+    var height = Pad * 2 + Math.Max(1, layout.Height) * Level;
+    double X(int id) => Pad + positions[id].Position.X * Slot + Slot / 2;
+    double Y(int id) => Pad + positions[id].Position.Y * Level + R;
+}
+<svg class="viz-svg" width="@VizCss.N(width)" height="@VizCss.N(height)">
+    @if (layout.Nodes.Count == 0)
+    {
+        <g><text class="note" x="@(Pad + 30)" y="@(Pad + R)">empty</text></g>
+    }
+    <g class="edges">
+    @foreach (var edge in layout.Edges)
+    {
+        <line @key="edge.Child" class="edge @(positions[edge.Child].Detached ? "detached" : "")"
+              x1="@VizCss.N(X(edge.Parent))" y1="@VizCss.N(Y(edge.Parent))" x2="@VizCss.N(X(edge.Child))" y2="@VizCss.N(Y(edge.Child))" />
+    }
+    </g>
+    <g class="nodes">
+    @foreach (var node in layout.Nodes)
+    {
+        var state = State.Nodes[node.Id];
+        var cls = $"{VizCss.Mark(State.Marks.GetValueOrDefault(node.Id))} {VizCss.Highlight(VizCss.AtNode(Highlights, node.Id))}";
+        <g @key="node.Id" class="elem @(node.Detached ? "detached" : "")" style="@VizCss.Translate(X(node.Id), Y(node.Id))">
+            <rect class="cell @cls" x="@(-NodeW / 2.0)" y="@(-R)" width="@NodeW" height="@(2 * R)" rx="@R" />
+            <text class="val">@state.Value</text>
+        </g>
+    }
+    </g>
+</svg>
+@if (State.Detached.Count > 0)
+{
+    <div class="panel-note">Faded nodes are detached: reattach them or call Remove().</div>
+}
+
+@code {
+    private const double R = 18, Level = 60, Pad = 10;
+    private int NodeW;
+    private double Slot;
+
+    /// <summary>Nodes are pills wide enough for the longest value; short values give circles.</summary>
+    protected override void OnParametersSet()
+    {
+        NodeW = VizCss.BoxWidth(State.Nodes.Values.Select(n => n.Value), (int)(2 * R));
+        Slot = NodeW + 8;
+    }
+
+    [Parameter, EditorRequired] public TreeState State { get; set; } = default!;
+
+    [Parameter] public IReadOnlyList<Highlight> Highlights { get; set; } = [];
+}

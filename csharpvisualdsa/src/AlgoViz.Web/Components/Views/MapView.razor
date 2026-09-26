@@ -1,0 +1,65 @@
+@* Map: key/value rows in insertion order. Set: members as chips that wrap. *@
+@{
+    var n = State.Entries.Count;
+    var isMap = State.Kind == StructureKind.Map;
+}
+@if (isMap)
+{
+    var height = Pad * 2 + Header + Math.Max(n, 1) * Row;
+    <svg class="viz-svg" width="@(Pad * 2 + KeyW + ValueW)" height="@height">
+        <text class="idx" x="@(Pad + KeyW / 2)" y="@(Pad + Header / 2)">key</text>
+        <text class="idx" x="@(Pad + KeyW + ValueW / 2)" y="@(Pad + Header / 2)">value</text>
+        @if (n == 0)
+        {
+            <g><text class="note" x="@(Pad + (KeyW + ValueW) / 2)" y="@(Pad + Header + Row / 2)">empty</text></g>
+        }
+        @for (var i = 0; i < n; i++)
+        {
+            var e = State.Entries[i];
+            var cls = VizCss.Highlight(VizCss.AtNode(Highlights, e.Id));
+            <g @key="e.Id" class="elem" style="@VizCss.Translate(Pad, Pad + Header + i * Row)">
+                <rect class="cell key @cls" width="@KeyW" height="@(Row - 4)" rx="4" />
+                <text class="val" x="@(KeyW / 2)" y="@((Row - 4) / 2)">@e.Key</text>
+                <rect class="cell @cls" x="@KeyW" width="@ValueW" height="@(Row - 4)" rx="4" />
+                <text class="val" x="@(KeyW + ValueW / 2)" y="@((Row - 4) / 2)">@e.Value</text>
+            </g>
+        }
+    </svg>
+}
+else
+{
+    var rows = Math.Max(1, (n + PerRow - 1) / PerRow);
+    var cols = Math.Clamp(n, 1, PerRow);
+    <svg class="viz-svg" width="@(Pad * 2 + cols * ChipStep)" height="@(Pad * 2 + rows * (ChipH + 6))">
+        @if (n == 0)
+        {
+            <g><text class="note" x="@(Pad + ChipW / 2)" y="@(Pad + ChipH / 2)">{ }</text></g>
+        }
+        @for (var i = 0; i < n; i++)
+        {
+            var e = State.Entries[i];
+            var (row, col) = Layout.Wrap(i, PerRow);
+            <g @key="e.Id" class="elem" style="@VizCss.Translate(Pad + col * ChipStep, Pad + row * (ChipH + 6))">
+                <rect class="cell @VizCss.Highlight(VizCss.AtNode(Highlights, e.Id))" width="@ChipW" height="@ChipH" rx="@(ChipH / 2)" />
+                <text class="val" x="@(ChipW / 2)" y="@(ChipH / 2)">@e.Value</text>
+            </g>
+        }
+    </svg>
+}
+
+@code {
+    private const int Pad = 8, Header = 18, Row = 32, ChipH = 28, PerRow = 8;
+    private int KeyW, ValueW, ChipW, ChipStep;
+
+    protected override void OnParametersSet()
+    {
+        KeyW = VizCss.BoxWidth(State.Entries.Select(e => e.Key), 84);
+        ValueW = VizCss.BoxWidth(State.Entries.Select(e => e.Value), 84);
+        ChipW = VizCss.BoxWidth(State.Entries.Select(e => e.Value), 56);
+        ChipStep = ChipW + 6;
+    }
+
+    [Parameter, EditorRequired] public MapState State { get; set; } = default!;
+
+    [Parameter] public IReadOnlyList<Highlight> Highlights { get; set; } = [];
+}

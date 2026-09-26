@@ -1,0 +1,89 @@
+@* Nodes left to right in display order; each node is [value | next]. Adjacent links are straight arrows,
+   backward links arc above, forward jumps arc below. *@
+@{
+    var slots = Layout.LinkedList(State);
+    var n = State.Order.Count;
+    var width = Pad * 2 + Math.Max(n, 1) * Step - Gap + 20;
+    var height = Top + H + Below + Pad;
+    double X(int id) => Pad + slots[id] * Step;
+}
+<svg class="viz-svg" width="@width" height="@height">
+    <defs>
+        <marker id="@ArrowId" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path class="arrow-head" d="M0,0 L10,5 L0,10 z" />
+        </marker>
+    </defs>
+    @if (n == 0)
+    {
+        <g><text class="note" x="@(Pad + 30)" y="@(Top + H / 2)">empty</text></g>
+    }
+    @if (State.Head is { } head && slots.ContainsKey(head))
+    {
+        <g @key="@("head")" class="elem" style="@VizCss.Translate(X(head) + ValueW * 0.3, 0)">
+            <text class="ptr" y="12">head</text>
+            <line class="link" x1="0" y1="20" x2="0" y2="@(Top - 2)" marker-end="url(#@ArrowId)" />
+        </g>
+    }
+    <g class="links">
+    @foreach (var id in State.Order)
+    {
+        var node = State.Nodes[id];
+        if (node.Next is not { } next || !slots.ContainsKey(next)) continue;
+        <path @key="id" class="link" d="@LinkPath(X(id), X(next), slots[next] - slots[id])" marker-end="url(#@ArrowId)" />
+    }
+    </g>
+    <g class="nodes">
+    @foreach (var id in State.Order)
+    {
+        var node = State.Nodes[id];
+        <g @key="id" class="elem" style="@VizCss.Translate(X(id), Top)">
+            <rect class="cell @VizCss.Highlight(VizCss.AtNode(Highlights, id))" width="@NodeW" height="@H" rx="6" />
+            <line class="divider" x1="@ValueW" y1="0" x2="@ValueW" y2="@H" />
+            <text class="val" x="@(ValueW / 2)" y="@(H / 2)">@node.Value</text>
+            @if (node.Next is null)
+            {
+                <g><text class="note" x="@(ValueW + NextW / 2)" y="@(H / 2)">∅</text></g>
+            }
+            else
+            {
+                <circle class="dot" cx="@(ValueW + NextW / 2)" cy="@(H / 2)" r="3" />
+            }
+        </g>
+    }
+    </g>
+</svg>
+
+@code {
+    private const int NextW = 20, H = 36, Gap = 34, Pad = 10, Top = 42, Below = 40;
+    private int ValueW, NodeW, Step;
+    private readonly string ArrowId = "ll-arrow-" + Guid.NewGuid().ToString("N")[..8];
+
+    [Parameter, EditorRequired] public LinkedListState State { get; set; } = default!;
+
+    [Parameter] public IReadOnlyList<Highlight> Highlights { get; set; } = [];
+
+    protected override void OnParametersSet()
+    {
+        ValueW = VizCss.BoxWidth(State.Nodes.Values.Select(n => n.Value), 44);
+        NodeW = ValueW + NextW;
+        Step = NodeW + Gap;
+    }
+
+    private string LinkPath(double from, double to, int distance)
+    {
+        var sx = from + ValueW + NextW / 2.0;
+        var sy = Top + H / 2.0;
+        if (distance == 1) return $"M{VizCss.N(sx)},{VizCss.N(sy)} L{VizCss.N(to - 2)},{VizCss.N(sy)}";
+        var tx = to + ValueW * 0.75;
+        if (distance <= 0)
+        {
+            // Backward (or self) link: arc over the top.
+            var ty = Top - 1.0;
+            var lift = Top - 34.0;
+            return $"M{VizCss.N(sx)},{VizCss.N(Top)} C{VizCss.N(sx)},{VizCss.N(lift)} {VizCss.N(tx)},{VizCss.N(lift)} {VizCss.N(tx)},{VizCss.N(ty)}";
+        }
+        var by = Top + H + 1.0;
+        var drop = Top + H + Below - 6.0;
+        return $"M{VizCss.N(sx)},{VizCss.N(Top + H)} C{VizCss.N(sx)},{VizCss.N(drop)} {VizCss.N(tx)},{VizCss.N(drop)} {VizCss.N(tx)},{VizCss.N(by)}";
+    }
+}

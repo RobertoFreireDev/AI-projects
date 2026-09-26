@@ -1,0 +1,83 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<div class="editor-host" @ref="host"></div>
+
+@code {
+    private ElementReference host;
+    private IJSObjectReference? module;
+    private DotNetObjectReference<CodeEditor>? self;
+
+    [Parameter] public IReadOnlyList<Completion> Completions { get; set; } = [];
+
+    [Parameter] public bool Dark { get; set; }
+
+    /// <summary>Ctrl+Enter inside the editor.</summary>
+    [Parameter] public EventCallback OnRun { get; set; }
+
+    /// <summary>Raised once the editor exists; true when a saved script was restored.</summary>
+    [Parameter] public EventCallback<bool> OnReady { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/editor.js");
+        self = DotNetObjectReference.Create(this);
+        var restored = await module.InvokeAsync<bool>("init", host, self, new { dark = Dark, completions = Completions });
+        await OnReady.InvokeAsync(restored);
+    }
+
+    [JSInvokable]
+    public Task RunFromEditor() => OnRun.InvokeAsync();
+
+    public async Task<string> GetValueAsync() => module is null ? "" : await module.InvokeAsync<string>("getValue");
+
+    public Task SetValueAsync(string code) => Call("setValue", code);
+
+    // Cast to object so the array is one argument, not spread into the params array.
+    public Task SetDiagnosticsAsync(IEnumerable<ScriptDiagnostic> diagnostics) =>
+        Call("setAnnotations", (object)diagnostics.Select(d => new
+        {
+            line = d.Line,
+            column = d.Column,
+            message = d.Message,
+            severity = d.Severity == ScriptSeverity.Error ? "error" : "warning",
+        }).ToArray());
+
+    public Task HighlightLineAsync(int line) => Call("highlightLine", line);
+
+    public Task ClearHighlightAsync() => Call("clearHighlight");
+
+    public Task SetThemeAsync(bool dark) => Call("setTheme", dark);
+
+    public Task FocusAsync() => Call("focus");
+
+    private async Task Call(string identifier, params object?[] args)
+    {
+        if (module is null) return;
+        try
+        {
+            await module.InvokeVoidAsync(identifier, args);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit is gone; nothing to update.
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (module is not null)
+        {
+            try
+            {
+                await module.InvokeVoidAsync("dispose");
+                await module.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+        self?.Dispose();
+    }
+}

@@ -1,0 +1,89 @@
+@* Array, List, Queue and Deque: a horizontal row of cells. Elements are keyed by id so swaps slide. *@
+@{
+    var n = State.Items.Count;
+    var indexed = State.Kind is StructureKind.Array or StructureKind.List;
+    var shift = State.Pointers.Values.Any(p => p < 0) ? Step : 0;
+    var byIndex = State.Pointers.GroupBy(p => p.Value).ToDictionary(g => g.Key, g => g.Select(p => p.Key).ToList());
+    var pointerRows = byIndex.Count == 0 ? 0 : byIndex.Values.Max(v => v.Count);
+    var slots = Math.Max(n, 1) + (State.Pointers.Values.Any(p => p >= n) ? 1 : 0);
+    var width = Pad * 2 + shift + slots * Step;
+    var labelsY = Pad + H + 14;
+    var height = labelsY + 8 + pointerRows * 18 + Pad;
+    double X(int i) => Pad + shift + i * Step;
+}
+<svg class="viz-svg" width="@width" height="@height">
+    @if (n == 0)
+    {
+        <rect class="empty-slot" x="@VizCss.N(X(0))" y="@Pad" width="@W" height="@H" rx="6" />
+        <g><text class="note" x="@VizCss.N(X(0) + W / 2)" y="@(Pad + H / 2)">empty</text></g>
+    }
+    @for (var i = 0; i < n; i++)
+    {
+        var label = indexed ? i.ToString() : i == 0 ? "front" : i == n - 1 ? "back" : "";
+        if (!indexed && n == 1) label = "front/back";
+        <g><text class="idx" x="@VizCss.N(X(i) + W / 2)" y="@labelsY">@label</text></g>
+    }
+    @for (var i = 0; i < n; i++)
+    {
+        var e = State.Items[i];
+        <g @key="e.Id" class="elem" style="@VizCss.Translate(X(i), Pad)">
+            <rect class="cell @CellClass(i)" width="@W" height="@H" rx="6" />
+            <text class="val" x="@(W / 2)" y="@(H / 2)">@e.Value</text>
+        </g>
+    }
+    @foreach (var (index, names) in byIndex)
+    {
+        for (var k = 0; k < names.Count; k++)
+        {
+            <g @key="names[k]" class="elem pointer" style="@VizCss.Translate(X(index) + W / 2, labelsY + 10 + k * 18)">
+                <text class="ptr">▲ @names[k]</text>
+            </g>
+        }
+    }
+</svg>
+@if (State.ShowAsTree && n > 0)
+{
+    var tree = Layout.Heap(n);
+    var positions = tree.Nodes.ToDictionary(t => t.Id, t => t.Position);
+    var tw = Pad * 2 + Math.Max(1, tree.Width) * TreeSlot;
+    var th = Pad * 2 + Math.Max(1, tree.Height) * TreeLevel;
+    double TX(int i) => Pad + positions[i].X * TreeSlot + TreeSlot / 2;
+    double TY(int i) => Pad + positions[i].Y * TreeLevel + R;
+    <svg class="viz-svg heap" width="@VizCss.N(tw)" height="@VizCss.N(th)">
+        @foreach (var edge in tree.Edges)
+        {
+            <line class="edge" x1="@VizCss.N(TX(edge.Parent))" y1="@VizCss.N(TY(edge.Parent))" x2="@VizCss.N(TX(edge.Child))" y2="@VizCss.N(TY(edge.Child))" />
+        }
+        @for (var i = 0; i < n; i++)
+        {
+            var e = State.Items[i];
+            <g @key="e.Id" class="elem" style="@VizCss.Translate(TX(i), TY(i))">
+                <rect class="cell @CellClass(i)" x="@(-NodeW / 2.0)" y="@(-R)" width="@NodeW" height="@(2 * R)" rx="@R" />
+                <text class="val">@e.Value</text>
+            </g>
+        }
+    </svg>
+}
+
+@code {
+    private const int H = 40, Gap = 6, Pad = 10;
+    private const double R = 18, TreeLevel = 58;
+    private int W, Step, NodeW;
+    private double TreeSlot;
+
+    [Parameter, EditorRequired] public SequenceState State { get; set; } = default!;
+
+    [Parameter] public IReadOnlyList<Highlight> Highlights { get; set; } = [];
+
+    protected override void OnParametersSet()
+    {
+        var values = State.Items.Select(e => e.Value).ToList();
+        W = VizCss.BoxWidth(values, 44);
+        Step = W + Gap;
+        NodeW = VizCss.BoxWidth(values, (int)(2 * R));
+        TreeSlot = NodeW + 8;
+    }
+
+    private string CellClass(int i) =>
+        $"{VizCss.Mark(State.Marks.GetValueOrDefault(i))} {VizCss.Highlight(VizCss.AtIndex(Highlights, i))}";
+}

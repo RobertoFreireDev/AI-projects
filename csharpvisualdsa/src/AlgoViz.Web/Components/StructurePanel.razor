@@ -1,0 +1,35 @@
+<div class="panel">
+    <div class="panel-title"><span class="label">@State.Label</span> <span class="kind">@State.Kind</span></div>
+    <div class="panel-body">
+        @switch (State)
+        {
+            case SequenceState { Kind: StructureKind.Stack } s:
+                <StackView State="s" Highlights="Highlights" />
+                break;
+            case SequenceState s:
+                <ArrayView State="s" Highlights="Highlights" />
+                break;
+            case LinkedListState s:
+                <LinkedListView State="s" Highlights="Highlights" />
+                break;
+            case TreeState s:
+                <TreeView State="s" Highlights="Highlights" />
+                break;
+            case GraphState s:
+                <GraphView State="s" Highlights="Highlights" />
+                break;
+            case GridState s:
+                <GridView State="s" Highlights="Highlights" />
+                break;
+            case MapState s:
+                <MapView State="s" Highlights="Highlights" />
+                break;
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public StructureState State { get; set; } = default!;
+
+    [Parameter] public IReadOnlyList<Highlight> Highlights { get; set; } = [];
+}

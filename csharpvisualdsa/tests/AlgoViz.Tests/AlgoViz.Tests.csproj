@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AlgoViz.Core\AlgoViz.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\src\AlgoViz.Web\Samples\*.csx" LogicalName="Samples.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

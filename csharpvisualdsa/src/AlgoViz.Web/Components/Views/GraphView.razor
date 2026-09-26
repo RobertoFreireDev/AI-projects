@@ -1,0 +1,73 @@
+@* Graph: the user's coordinates when every node has them, otherwise a circle. *@
+@{
+    var n = State.Nodes.Count;
+    var width = n <= 6 ? 360.0 : Math.Min(760, 300 + n * 30);
+    var height = Math.Round(width * 0.65);
+    var positions = Layout.Graph(State, width, height, R + 14);
+    var readNode = Highlights.FirstOrDefault(h => h.Kind == HighlightKind.Read)?.NodeId;
+    var keys = State.Edges.Select(e => (e.From, e.To)).ToHashSet();
+}
+<svg class="viz-svg" width="@VizCss.N(width)" height="@VizCss.N(height)">
+    <defs>
+        <marker id="@ArrowId" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path class="arrow-head" d="M0,0 L10,5 L0,10 z" />
+        </marker>
+    </defs>
+    @if (n == 0)
+    {
+        <g><text class="note" x="@(width / 2)" y="@(height / 2)">empty</text></g>
+    }
+    <g class="edges">
+    @foreach (var edge in State.Edges)
+    {
+        if (!positions.TryGetValue(edge.From, out var a) || !positions.TryGetValue(edge.To, out var b)) continue;
+        var key = State.EdgeKey(edge.From, edge.To);
+        // Two directed edges between the same pair are drawn side by side.
+        var offset = State.Directed && edge.From != edge.To && keys.Contains((edge.To, edge.From)) ? 5.0 : 0.0;
+        var (x1, y1, x2, y2) = Trim(a, b, offset);
+        var hl = Highlights.FirstOrDefault(h => h.NodeId is null && h.A is { } ha && h.B is { } hb && State.EdgeKey(ha, hb) == key)?.Kind
+                 ?? (readNode is { } r && (edge.From == r || (!State.Directed && edge.To == r)) ? HighlightKind.Read : null);
+        var cls = $"{VizCss.Mark(State.EdgeMarks.GetValueOrDefault(key))} {VizCss.Highlight(hl)}";
+        <g @key="@($"{edge.From}>{edge.To}")">
+            <line class="edge graph-edge @cls" x1="@VizCss.N(x1)" y1="@VizCss.N(y1)" x2="@VizCss.N(x2)" y2="@VizCss.N(y2)"
+                  marker-end="@(State.Directed ? $"url(#{ArrowId})" : null)" />
+            @if (edge.Weight is not null)
+            {
+                <g><text class="weight" x="@VizCss.N((x1 + x2) / 2)" y="@VizCss.N((y1 + y2) / 2 - 8)">@edge.Weight</text></g>
+            }
+        </g>
+    }
+    </g>
+    <g class="nodes">
+    @foreach (var node in State.Nodes)
+    {
+        var p = positions[node.Id];
+        var cls = $"{VizCss.Mark(State.NodeMarks.GetValueOrDefault(node.Id))} {VizCss.Highlight(VizCss.AtNode(Highlights, node.Id))}";
+        <g @key="node.Id" class="elem" style="@VizCss.Translate(p.X, p.Y)">
+            <circle class="cell @cls" r="@R" />
+            <text class="val">@node.Id</text>
+        </g>
+    }
+    </g>
+</svg>
+
+@code {
+    private const double R = 18;
+    private readonly string ArrowId = "g-arrow-" + Guid.NewGuid().ToString("N")[..8];
+
+    [Parameter, EditorRequired] public GraphState State { get; set; } = default!;
+
+    [Parameter] public IReadOnlyList<Highlight> Highlights { get; set; } = [];
+
+    /// <summary>The segment between two node centers, cut back to the circles and shifted sideways by <paramref name="offset"/>.</summary>
+    private static (double, double, double, double) Trim(Point a, Point b, double offset)
+    {
+        var dx = b.X - a.X;
+        var dy = b.Y - a.Y;
+        var length = Math.Sqrt(dx * dx + dy * dy);
+        if (length < 1) return (a.X, a.Y - R, a.X + 1, a.Y - R);
+        var (ux, uy) = (dx / length, dy / length);
+        var (ox, oy) = (-uy * offset, ux * offset);
+        return (a.X + ux * R + ox, a.Y + uy * R + oy, b.X - ux * (R + 2) + ox, b.Y - uy * (R + 2) + oy);
+    }
+}

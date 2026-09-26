@@ -1,0 +1,37 @@
+@* A vertical stack: index 0 at the bottom, the top element first. *@
+@{
+    var n = State.Items.Count;
+    var width = Pad * 2 + LabelW + W;
+    var height = Pad * 2 + Math.Max(n, 1) * Step;
+    double Y(int i) => Pad + Layout.StackRow(i, n) * Step;
+}
+<svg class="viz-svg" width="@width" height="@height">
+    @if (n == 0)
+    {
+        <rect class="empty-slot" x="@(Pad + LabelW)" y="@Pad" width="@W" height="@H" rx="6" />
+        <g><text class="note" x="@(Pad + LabelW + W / 2)" y="@(Pad + H / 2)">empty</text></g>
+    }
+    else
+    {
+        <g><text class="idx" x="@(Pad + LabelW / 2)" y="@(Pad + H / 2)">top →</text></g>
+    }
+    @for (var i = 0; i < n; i++)
+    {
+        var e = State.Items[i];
+        <g @key="e.Id" class="elem" style="@VizCss.Translate(Pad + LabelW, Y(i))">
+            <rect class="cell @VizCss.Highlight(VizCss.AtIndex(Highlights, i))" width="@W" height="@H" rx="6" />
+            <text class="val" x="@(W / 2)" y="@(H / 2)">@e.Value</text>
+        </g>
+    }
+</svg>
+
+@code {
+    private const int H = 32, Step = H + 4, Pad = 10, LabelW = 48;
+    private int W;
+
+    protected override void OnParametersSet() => W = VizCss.BoxWidth(State.Items.Select(e => e.Value), 64);
+
+    [Parameter, EditorRequired] public SequenceState State { get; set; } = default!;
+
+    [Parameter] public IReadOnlyList<Highlight> Highlights { get; set; } = [];
+}

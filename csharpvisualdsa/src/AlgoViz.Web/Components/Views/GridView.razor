@@ -1,0 +1,35 @@
+@{
+    var width = Pad + Label + State.Cols * C + Pad;
+    var height = Pad + Label + State.Rows * C + Pad;
+    var hl = Highlights.FirstOrDefault();
+}
+<svg class="viz-svg" width="@width" height="@height">
+    @for (var c = 0; c < State.Cols; c++)
+    {
+        <g><text class="idx" x="@(Pad + Label + c * C + C / 2)" y="@(Pad + Label / 2)">@c</text></g>
+    }
+    @for (var r = 0; r < State.Rows; r++)
+    {
+        <g><text class="idx" x="@(Pad + Label / 2)" y="@(Pad + Label + r * C + C / 2)">@r</text></g>
+        for (var c = 0; c < State.Cols; c++)
+        {
+            var cell = r * State.Cols + c;
+            var kind = hl is not null && hl.A == r && hl.B == c ? hl.Kind : (HighlightKind?)null;
+            var x = Pad + Label + c * C;
+            var y = Pad + Label + r * C;
+            <rect class="cell grid-cell @VizCss.Mark(State.Marks.GetValueOrDefault(cell)) @VizCss.Highlight(kind)" x="@x" y="@y" width="@C" height="@C" />
+            <g><text class="val small" x="@(x + C / 2)" y="@(y + C / 2)">@State.Cells[cell]</text></g>
+        }
+    }
+</svg>
+
+@code {
+    private const int Pad = 6, Label = 18;
+    private int C;
+
+    protected override void OnParametersSet() => C = VizCss.BoxWidth(State.Cells, 32);
+
+    [Parameter, EditorRequired] public GridState State { get; set; } = default!;
+
+    [Parameter] public IReadOnlyList<Highlight> Highlights { get; set; } = [];
+}

@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AlgoViz.Core" />
+    <InternalsVisibleTo Include="AlgoViz.Tests" />
+  </ItemGroup>
+
+</Project>

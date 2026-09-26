@@ -1,0 +1,317 @@
+@page "/"
+@implements IDisposable
+@inject ScriptRunner Runner
+@inject SampleCatalog SampleCatalog
+@inject ApiCatalog ApiCatalog
+
+<PageTitle>AlgoViz</PageTitle>
+
+<div class="app @(dark ? "theme-dark" : "theme-light")" style="--anim: @(AnimationMs)ms">
+    <header class="toolbar">
+        <span class="brand">AlgoViz</span>
+        <select class="samples" value="" @onchange="LoadSampleAsync" title="Load a built-in example">
+            <option value="">Samples…</option>
+            @foreach (var sample in SampleCatalog.Samples)
+            {
+                <option value="@sample.Id">@sample.Title</option>
+            }
+        </select>
+        <button class="primary" @onclick="RunAsync" disabled="@running" title="Compile and run (Ctrl+Enter)">
+            @(running ? "Running…" : "▶ Run")
+        </button>
+        <span class="status">@status</span>
+        <span class="spacer"></span>
+        <button @onclick="ToggleThemeAsync" title="Switch theme">@(dark ? "☀ Light" : "☾ Dark")</button>
+    </header>
+
+    <section class="editor-pane">
+        <CodeEditor @ref="editor" Completions="ApiCatalog.Completions" Dark="dark" OnRun="RunAsync" OnReady="OnEditorReadyAsync" />
+    </section>
+
+    @if (result is { CompileErrors.Count: > 0 })
+    {
+        <ul class="diagnostics">
+            @foreach (var d in result.CompileErrors)
+            {
+                <li class="@(d.Severity == ScriptSeverity.Error ? "error" : "warning")">
+                    <span class="where">line @d.Line:@d.Column</span> @d.Message
+                </li>
+            }
+        </ul>
+    }
+
+    <section class="player" tabindex="0" @ref="playerRegion" @onkeydown="OnKeyDownAsync" @onkeydown:preventDefault="true">
+        <div class="controls">
+            <button @onclick="RestartAsync" disabled="@(playback is null)" title="Restart (Home)">⏮</button>
+            <button @onclick="StepBackAsync" disabled="@(playback is null)" title="Step back (←)">◀</button>
+            <button class="play" @onclick="TogglePlayAsync" disabled="@(playback is null)" title="Play/Pause (Space)">@(playing ? "⏸" : "▶")</button>
+            <button @onclick="StepForwardAsync" disabled="@(playback is null)" title="Step forward (→)">▶|</button>
+            <button @onclick="EndAsync" disabled="@(playback is null)" title="Jump to end (End)">⏭</button>
+            <span class="counter">@(Frame.Index) / @(playback?.LastFrame ?? 0)</span>
+            <select class="speed" value="@Inv(speed)" @onchange="ChangeSpeedAsync" title="Playback speed">
+                @foreach (var s in Speeds)
+                {
+                    <option value="@Inv(s)">@Inv(s)×</option>
+                }
+            </select>
+            <span class="op-text">@OpText.Describe(Frame.Op, Frame)</span>
+        </div>
+
+        <div class="timeline">
+            <input type="range" min="0" max="@(playback?.LastFrame ?? 0)" value="@Frame.Index"
+                   disabled="@(playback is null)" @oninput="ScrubAsync" />
+            @if (playback is { LastFrame: > 0 })
+            {
+                <div class="markers">
+                    @foreach (var step in playback.Steps)
+                    {
+                        <button class="marker" style="left: @Inv(Percent(step.Frame))%" title="@step.Label"
+                                @onclick="() => SeekAsync(step.Frame)">
+                            <span>@step.Label</span>
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="viz">
+            <div class="structures">
+                @if (playback is null)
+                {
+                    <p class="hint">Write a script above and press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (or ▶ Run), or pick a sample.</p>
+                }
+                @foreach (var structure in Frame.Structures)
+                {
+                    <StructurePanel @key="structure.Id" State="structure" Highlights="Frame.HighlightsFor(structure.Id).ToList()" />
+                }
+            </div>
+            <aside class="side">
+                @if (result?.Error is { } error && playback is { AtEnd: true })
+                {
+                    <div class="runtime-error">
+                        <strong>Runtime error</strong>@(error.Line > 0 ? $" at line {error.Line}" : "")
+                        <div>@error.Message</div>
+                    </div>
+                }
+                <h3>Watch</h3>
+                @if (Frame.Vars.Count == 0)
+                {
+                    <p class="empty">Use <code>Viz.Var("name", value)</code>.</p>
+                }
+                else
+                {
+                    <table class="watch">
+                        @foreach (var v in Frame.Vars)
+                        {
+                            <tr class="@(v.ChangedAt == Frame.Index - 1 ? "changed" : "")"><td>@v.Name</td><td>@v.Value</td></tr>
+                        }
+                    </table>
+                }
+                <h3>Log</h3>
+                @if (Frame.Log.Count == 0)
+                {
+                    <p class="empty">Use <code>Viz.Log(message)</code>.</p>
+                }
+                else
+                {
+                    <ol class="log">
+                        @foreach (var line in Frame.Log.TakeLast(200))
+                        {
+                            <li><span class="where">@line.Line</span> @line.Text</li>
+                        }
+                    </ol>
+                }
+            </aside>
+        </div>
+    </section>
+</div>
+
+@code {
+    private static readonly double[] Speeds = [0.25, 0.5, 1, 2, 4];
+    private const double BaseFrameMs = 500;
+
+    private CodeEditor? editor;
+    private ElementReference playerRegion;
+    private RunResult? result;
+    private Playback? playback;
+    private bool running;
+    private bool playing;
+    private bool dark = true;
+    private double speed = 1;
+    private string status = "";
+    private CancellationTokenSource? playCts;
+
+    private Frame Frame => playback?.Current ?? Frame.Empty;
+
+    private double FrameMs => BaseFrameMs / speed;
+
+    /// <summary>CSS transitions stay shorter than a frame so animations finish before the next step.</summary>
+    private int AnimationMs => (int)Math.Min(300, FrameMs * 0.6);
+
+    private static string Inv(double value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    private double Percent(int frame) => playback is { LastFrame: > 0 } p ? 100.0 * frame / p.LastFrame : 0;
+
+    private async Task OnEditorReadyAsync(bool restored)
+    {
+        if (!restored && SampleCatalog.Samples.Count > 0 && editor is not null)
+            await editor.SetValueAsync(SampleCatalog.Samples[0].Code);
+    }
+
+    private async Task LoadSampleAsync(ChangeEventArgs e)
+    {
+        if (e.Value is not string id || SampleCatalog.Find(id) is not { } sample || editor is null) return;
+        StopPlayback();
+        await editor.SetValueAsync(sample.Code);
+        await editor.FocusAsync();
+    }
+
+    private async Task RunAsync()
+    {
+        if (running || editor is null) return;
+        running = true;
+        status = "Compiling…";
+        StopPlayback();
+        StateHasChanged();
+        try
+        {
+            var code = await editor.GetValueAsync();
+            result = await Runner.RunAsync(code);
+            var diagnostics = result.CompileErrors.ToList();
+            if (result.Error is { Line: > 0 } error)
+                diagnostics.Add(new ScriptDiagnostic(error.Line, 1, error.Message, ScriptSeverity.Error));
+            await editor.SetDiagnosticsAsync(diagnostics);
+
+            if (result.HasCompileErrors)
+            {
+                playback = null;
+                status = $"{result.CompileErrors.Count(d => d.Severity == ScriptSeverity.Error)} compile error(s)";
+                await editor.ClearHighlightAsync();
+                return;
+            }
+
+            playback = new Playback(result.Ops);
+            status = $"{result.Ops.Count} ops · {result.Elapsed.TotalMilliseconds:0} ms" + (result.Error is null ? "" : " · ended with an error");
+            await SyncEditorAsync();
+            await playerRegion.FocusAsync();
+            StartPlayback();
+        }
+        finally
+        {
+            running = false;
+        }
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && (e.CtrlKey || e.MetaKey))
+        {
+            await RunAsync();
+            return;
+        }
+        switch (e.Key)
+        {
+            case " ": await TogglePlayAsync(); break;
+            case "ArrowLeft": await StepBackAsync(); break;
+            case "ArrowRight": await StepForwardAsync(); break;
+            case "Home": await RestartAsync(); break;
+            case "End": await EndAsync(); break;
+        }
+    }
+
+    private Task TogglePlayAsync()
+    {
+        if (playback is null) return Task.CompletedTask;
+        if (playing) StopPlayback();
+        else StartPlayback();
+        return Task.CompletedTask;
+    }
+
+    private Task RestartAsync() => SeekAsync(0);
+
+    private Task EndAsync() => SeekAsync(playback?.LastFrame ?? 0);
+
+    private Task StepForwardAsync() => SeekAsync(Frame.Index + 1);
+
+    private Task StepBackAsync() => SeekAsync(Frame.Index - 1);
+
+    private Task ScrubAsync(ChangeEventArgs e) =>
+        int.TryParse(e.Value?.ToString(), out var index) ? SeekAsync(index) : Task.CompletedTask;
+
+    private async Task SeekAsync(int index)
+    {
+        if (playback is null) return;
+        StopPlayback();
+        playback.Seek(index);
+        await SyncEditorAsync();
+    }
+
+    private async Task ChangeSpeedAsync(ChangeEventArgs e)
+    {
+        if (!double.TryParse(e.Value?.ToString(), System.Globalization.CultureInfo.InvariantCulture, out var value)) return;
+        speed = value;
+        if (playing)
+        {
+            StopPlayback();
+            StartPlayback();
+        }
+        await Task.CompletedTask;
+    }
+
+    private void StartPlayback()
+    {
+        if (playback is null) return;
+        if (playback.AtEnd) playback.Seek(0);
+        StopPlayback();
+        playing = true;
+        playCts = new CancellationTokenSource();
+        _ = PlayLoopAsync(playCts.Token);
+    }
+
+    private void StopPlayback()
+    {
+        playing = false;
+        playCts?.Cancel();
+        playCts?.Dispose();
+        playCts = null;
+    }
+
+    private async Task PlayLoopAsync(CancellationToken token)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(FrameMs));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(token))
+            {
+                await InvokeAsync(async () =>
+                {
+                    if (token.IsCancellationRequested || playback is null) return;
+                    playback.StepForward();
+                    if (playback.AtEnd) StopPlayback();
+                    StateHasChanged();
+                    await SyncEditorAsync();
+                });
+                if (!playing) break;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    /// <summary>Highlights the current op's line, or the error line on the final frame of a failed run.</summary>
+    private async Task SyncEditorAsync()
+    {
+        if (editor is null || playback is null) return;
+        var line = playback.AtEnd && result?.Error is { Line: > 0 } error ? error.Line : Frame.Line;
+        await editor.HighlightLineAsync(line);
+    }
+
+    private async Task ToggleThemeAsync()
+    {
+        dark = !dark;
+        if (editor is not null) await editor.SetThemeAsync(dark);
+    }
+
+    public void Dispose() => StopPlayback();
+}

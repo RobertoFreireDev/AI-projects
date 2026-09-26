@@ -1,0 +1,524 @@
+/* ---------- Theme tokens ---------- */
+.theme-dark {
+    --bg: #14161a;
+    --panel: #1b1e23;
+    --panel-2: #22262d;
+    --border: #2d323b;
+    --fg: #d8dbe1;
+    --fg-muted: #8a909b;
+    --cell: #262a31;
+    --cell-stroke: #434a56;
+    --edge: #6b7382;
+    --accent: #4c8dff;
+    --c-active: #4c8dff;
+    --c-done: #2fb36b;
+    --c-warn: #e5a82a;
+    --c-path: #b06cff;
+    --c-muted: #555c68;
+    --hl-read: #22c3d6;
+    --hl-compare: #ff8a3d;
+    --hl-visit: #ff5ca8;
+    --hl-change: #9bd43a;
+    --error: #f0605d;
+    --op-line: rgba(76, 141, 255, 0.28);
+    --error-line: rgba(240, 96, 93, 0.28);
+    color-scheme: dark;
+}
+
+.theme-light {
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --panel-2: #eef0f3;
+    --border: #d8dce2;
+    --fg: #1f2329;
+    --fg-muted: #68707c;
+    --cell: #ffffff;
+    --cell-stroke: #aeb5c0;
+    --edge: #8a929e;
+    --accent: #2f6fe0;
+    --c-active: #2f6fe0;
+    --c-done: #1f9a57;
+    --c-warn: #c98a0c;
+    --c-path: #8b45e0;
+    --c-muted: #a3aab5;
+    --hl-read: #0ea5b7;
+    --hl-compare: #f07020;
+    --hl-visit: #e0368a;
+    --hl-change: #6aa81a;
+    --error: #d63b38;
+    --op-line: rgba(47, 111, 224, 0.2);
+    --error-line: rgba(214, 59, 56, 0.2);
+    color-scheme: light;
+}
+
+/* ---------- Page layout ---------- */
+html, body {
+    margin: 0;
+    height: 100%;
+}
+
+body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+}
+
+.app {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    color: var(--fg);
+}
+
+button, select, input {
+    font: inherit;
+    color: inherit;
+}
+
+button, select {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+    border-color: var(--accent);
+}
+
+button:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 600;
+}
+
+kbd {
+    font: 12px ui-monospace, monospace;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0 4px;
+    background: var(--panel-2);
+}
+
+code {
+    font: 12px ui-monospace, monospace;
+}
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+}
+
+.brand {
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin-right: 8px;
+}
+
+.status {
+    color: var(--fg-muted);
+    font-size: 13px;
+}
+
+.spacer {
+    flex: 1;
+}
+
+/* The editor pane is resizable by dragging its bottom-right corner. */
+.editor-pane {
+    height: 38vh;
+    min-height: 120px;
+    max-height: 85vh;
+    resize: vertical;
+    overflow: hidden;
+    border-bottom: 1px solid var(--border);
+}
+
+.editor-host {
+    width: 100%;
+    height: 100%;
+}
+
+.ace-active-op {
+    position: absolute;
+    background: var(--op-line);
+}
+
+.ace-error-line {
+    position: absolute;
+    background: var(--error-line);
+}
+
+.diagnostics {
+    margin: 0;
+    padding: 6px 12px;
+    list-style: none;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    max-height: 120px;
+    overflow: auto;
+    font-size: 13px;
+}
+
+.diagnostics li.error {
+    color: var(--error);
+}
+
+.diagnostics li.warning {
+    color: var(--c-warn);
+}
+
+.where {
+    color: var(--fg-muted);
+    font: 12px ui-monospace, monospace;
+    margin-right: 6px;
+}
+
+/* ---------- Player ---------- */
+.player {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    outline: none;
+}
+
+.player:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px 0;
+}
+
+.controls button {
+    min-width: 36px;
+}
+
+.controls .play {
+    min-width: 44px;
+}
+
+.counter {
+    font: 13px ui-monospace, monospace;
+    color: var(--fg-muted);
+    min-width: 80px;
+    text-align: center;
+}
+
+.op-text {
+    margin-left: 8px;
+    font: 13px ui-monospace, monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.timeline {
+    position: relative;
+    padding: 4px 12px 18px;
+}
+
+.timeline input[type=range] {
+    width: 100%;
+    accent-color: var(--accent);
+}
+
+.markers {
+    position: absolute;
+    left: 20px;
+    right: 20px;
+    bottom: 0;
+    height: 16px;
+}
+
+.marker {
+    position: absolute;
+    transform: translateX(-50%);
+    padding: 0 4px;
+    border: none;
+    background: none;
+    font-size: 11px;
+    color: var(--c-path);
+    white-space: nowrap;
+}
+
+.marker::before {
+    content: "◆ ";
+}
+
+.viz {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    min-height: 240px;
+    border-top: 1px solid var(--border);
+}
+
+.structures {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 12px;
+    padding: 12px;
+    overflow: auto;
+}
+
+.hint {
+    color: var(--fg-muted);
+}
+
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 8px 8px;
+    max-width: 100%;
+    overflow: auto;
+}
+
+.panel-title {
+    margin-bottom: 4px;
+}
+
+.panel-title .label {
+    font-weight: 600;
+}
+
+.panel-title .kind {
+    color: var(--fg-muted);
+    font-size: 12px;
+    margin-left: 4px;
+}
+
+.panel-note {
+    color: var(--fg-muted);
+    font-size: 12px;
+}
+
+.side {
+    border-left: 1px solid var(--border);
+    padding: 8px 12px;
+    overflow: auto;
+    background: var(--panel);
+}
+
+.side h3 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--fg-muted);
+    margin: 12px 0 6px;
+}
+
+.side .empty {
+    color: var(--fg-muted);
+    font-size: 13px;
+    margin: 0;
+}
+
+.watch {
+    width: 100%;
+    border-collapse: collapse;
+    font: 13px ui-monospace, monospace;
+}
+
+.watch td {
+    padding: 2px 4px;
+    border-bottom: 1px solid var(--border);
+}
+
+.watch td:first-child {
+    color: var(--fg-muted);
+    width: 40%;
+}
+
+.watch tr.changed td:last-child {
+    color: var(--hl-change);
+    font-weight: 600;
+}
+
+.log {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font: 13px ui-monospace, monospace;
+}
+
+.log li {
+    padding: 1px 0;
+}
+
+.runtime-error {
+    border: 1px solid var(--error);
+    color: var(--error);
+    border-radius: 6px;
+    padding: 6px 8px;
+    margin-top: 6px;
+    font-size: 13px;
+}
+
+/* ---------- SVG visualizations ---------- */
+.viz-svg {
+    display: block;
+    overflow: visible;
+}
+
+.viz-svg text {
+    dominant-baseline: central;
+    text-anchor: middle;
+    fill: var(--fg);
+    font: 13px ui-monospace, monospace;
+    pointer-events: none;
+}
+
+.viz-svg text.small {
+    font-size: 12px;
+}
+
+.viz-svg text.idx,
+.viz-svg text.note {
+    fill: var(--fg-muted);
+    font-size: 11px;
+}
+
+.viz-svg text.ptr {
+    fill: var(--c-path);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.viz-svg text.weight {
+    fill: var(--fg-muted);
+    font-size: 11px;
+    paint-order: stroke;
+    stroke: var(--panel);
+    stroke-width: 3px;
+}
+
+.viz-svg .elem {
+    transition: transform var(--anim) ease, opacity var(--anim);
+}
+
+.viz-svg .cell {
+    fill: var(--cell);
+    stroke: var(--cell-stroke);
+    stroke-width: 1.5;
+    transition: fill var(--anim), stroke var(--anim);
+}
+
+.viz-svg .cell.key {
+    fill: var(--panel-2);
+}
+
+.viz-svg .grid-cell {
+    stroke-width: 1;
+}
+
+.viz-svg .empty-slot {
+    fill: none;
+    stroke: var(--cell-stroke);
+    stroke-dasharray: 4 3;
+}
+
+.viz-svg .edge,
+.viz-svg .link {
+    stroke: var(--edge);
+    stroke-width: 1.6;
+    fill: none;
+    transition: stroke var(--anim);
+}
+
+.viz-svg .divider {
+    stroke: var(--cell-stroke);
+}
+
+.viz-svg .dot {
+    fill: var(--edge);
+}
+
+.viz-svg .arrow-head {
+    fill: var(--edge);
+}
+
+.viz-svg .detached {
+    opacity: 0.45;
+}
+
+/* Persistent marks */
+.viz-svg .cell.mark-active { fill: color-mix(in srgb, var(--c-active) 35%, var(--cell)); stroke: var(--c-active); }
+.viz-svg .cell.mark-done { fill: color-mix(in srgb, var(--c-done) 35%, var(--cell)); stroke: var(--c-done); }
+.viz-svg .cell.mark-warn { fill: color-mix(in srgb, var(--c-warn) 35%, var(--cell)); stroke: var(--c-warn); }
+.viz-svg .cell.mark-path { fill: color-mix(in srgb, var(--c-path) 35%, var(--cell)); stroke: var(--c-path); }
+.viz-svg .cell.mark-muted { fill: color-mix(in srgb, var(--c-muted) 45%, var(--cell)); stroke: var(--c-muted); }
+
+.viz-svg .edge.mark-active { stroke: var(--c-active); stroke-width: 3; }
+.viz-svg .edge.mark-done { stroke: var(--c-done); stroke-width: 3; }
+.viz-svg .edge.mark-warn { stroke: var(--c-warn); stroke-width: 3; }
+.viz-svg .edge.mark-path { stroke: var(--c-path); stroke-width: 3; }
+.viz-svg .edge.mark-muted { stroke: var(--c-muted); stroke-dasharray: 4 3; }
+
+/* Transient highlights win over marks (declared later). */
+.viz-svg .cell.hl-read { fill: color-mix(in srgb, var(--hl-read) 45%, var(--cell)); stroke: var(--hl-read); stroke-width: 2.5; }
+.viz-svg .cell.hl-compare { fill: color-mix(in srgb, var(--hl-compare) 45%, var(--cell)); stroke: var(--hl-compare); stroke-width: 2.5; }
+.viz-svg .cell.hl-visit { fill: color-mix(in srgb, var(--hl-visit) 45%, var(--cell)); stroke: var(--hl-visit); stroke-width: 2.5; }
+.viz-svg .cell.hl-change { fill: color-mix(in srgb, var(--hl-change) 45%, var(--cell)); stroke: var(--hl-change); stroke-width: 2.5; }
+
+.viz-svg .edge.hl-read { stroke: var(--hl-read); stroke-width: 3; }
+.viz-svg .edge.hl-change { stroke: var(--hl-change); stroke-width: 3; }
+
+/* ---------- Blazor chrome ---------- */
+#blazor-error-ui {
+    background: lightyellow;
+    color: #222;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}
+
+.blazor-error-boundary {
+    background: #b32121;
+    padding: 1rem;
+    color: white;
+}
+
+.blazor-error-boundary::after {
+    content: "An error has occurred.";
+}
+
+@media (max-width: 900px) {
+    .viz {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .side {
+        border-left: none;
+        border-top: 1px solid var(--border);
+    }
+}
