@@ -1,0 +1,1977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SQL for Kids 🐾</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
+<style>
+  :root {
+    --bg: #FFF8E7;
+    --text: #2B2D42;
+    --muted: #55586F;
+    --card: #FFFFFF;
+    --line: #E9DFC7;
+
+    --select: #4EA8DE;  --select-tint: #E4F2FB;
+    --from:   #57CC99;  --from-tint:   #E3F7EE;
+    --join:   #9B5DE5;  --join-tint:   #F1E8FC;
+    --where:  #FF9F1C;  --where-tint:  #FFF0DB;
+    --order:  #F15BB5;  --order-tint:  #FDE6F4;
+    --top:    #00BBF9;  --top-tint:    #DDF6FE;
+
+    --success: #38B000; --success-tint: #E4F6DA;
+    --error:   #FF6B6B; --error-tint:   #FFE7E7;
+
+    --radius: 18px;
+    --radius-sm: 14px;
+    --shadow: 0 4px 14px rgba(43, 45, 66, .12);
+    --shadow-press: 0 1px 4px rgba(43, 45, 66, .18);
+    --font: ui-rounded, "Segoe UI Rounded", "Arial Rounded MT Bold", "Nunito", system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html { font-size: 100%; -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 1.125rem;
+    line-height: 1.45;
+    min-height: 100vh;
+  }
+  button { font-family: inherit; color: inherit; }
+  button, .chip, .kw, h1, h2, h3, .topbar-title { overflow-wrap: break-word; }
+  :focus-visible { outline: 4px solid #2B2D42; outline-offset: 3px; }
+
+  #app {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 1rem 4rem;
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    min-height: 3rem;
+    min-width: 3rem;
+    padding: .55rem 1.2rem;
+    border: 3px solid var(--text);
+    border-radius: var(--radius);
+    background: var(--card);
+    font-size: 1.375rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    transition: transform .12s ease, box-shadow .12s ease;
+    touch-action: manipulation;
+  }
+  .btn:active:not(:disabled) { transform: scale(.94); box-shadow: var(--shadow-press); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+  .btn-run     { background: var(--select); }
+  .btn-check   { background: var(--success); }
+  .btn-soft    { border-color: var(--line); }
+  .btn-big     { font-size: 1.6rem; padding: .7rem 1.6rem; }
+  .bounce { animation: bounce .35s ease; }
+
+  /* Pick / chip buttons inside clause blocks */
+  .pick, .chip-btn, .toggle, .add, .remove, .step {
+    min-height: 3rem;
+    min-width: 3rem;
+    padding: .35rem .9rem;
+    border-radius: var(--radius-sm);
+    border: 2px solid rgba(43, 45, 66, .35);
+    background: var(--card);
+    font-size: 1.375rem;
+    font-weight: 700;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: transform .12s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    line-height: 1.15;
+    text-align: left;
+  }
+  .pick, .chip-btn { display: inline-block; max-width: 100%; }
+  .pick .tbl-tag, .chip-btn .tbl-tag { display: block; }
+  .pick:active:not(:disabled), .chip-btn:active, .toggle:active, .add:active:not(:disabled),
+  .remove:active, .step:active:not(:disabled) { transform: scale(.93); }
+  .pick.empty { border-style: dashed; color: var(--muted); }
+  .pick:disabled, .add:disabled, .step:disabled { opacity: .45; cursor: not-allowed; }
+  .toggle[aria-pressed="true"] { background: var(--text); color: #fff; border-color: var(--text); }
+  .add { border-style: dashed; background: rgba(255, 255, 255, .6); }
+  .remove { padding: .35rem .6rem; background: transparent; border-color: transparent; }
+  .chip-btn .x { font-size: 1rem; opacity: .7; margin-left: .35rem; }
+  .tbl-tag { font-size: .95rem; font-weight: 600; opacity: .75; }
+
+  /* ---------- Menu ---------- */
+  .menu-hero { text-align: center; padding: 2rem 0 1rem; }
+  .logo { font-size: 4.5rem; line-height: 1; animation: float 3s ease-in-out infinite; }
+  .menu-hero h1 { font-size: 2.6rem; margin: .4rem 0 .2rem; }
+  .tagline { margin: 0 auto; max-width: 30rem; color: var(--muted); }
+  .stars {
+    display: inline-block;
+    margin-top: 1rem;
+    padding: .4rem 1.1rem;
+    background: var(--card);
+    border-radius: 999px;
+    box-shadow: var(--shadow);
+    font-weight: 700;
+    font-size: 1.25rem;
+  }
+  .world {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 1rem 1rem 1.2rem;
+    margin: 1.2rem 0;
+  }
+  .world h2 { font-size: 1.5rem; margin: 0 0 .8rem; }
+  .level-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+    gap: .75rem;
+  }
+  .level-btn {
+    min-height: 6rem;
+    border-radius: var(--radius);
+    border: 3px solid var(--text);
+    background: var(--from-tint);
+    cursor: pointer;
+    padding: .5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .15rem;
+    font-weight: 700;
+    box-shadow: var(--shadow);
+    transition: transform .12s ease;
+    touch-action: manipulation;
+  }
+  .level-btn:active:not(:disabled) { transform: scale(.94); }
+  .level-btn.done { background: var(--success-tint); border-color: var(--success); }
+  .level-btn.locked { background: #EFEDE7; border-color: #B9B6AC; cursor: not-allowed; color: var(--muted); box-shadow: none; }
+  .lvl-top { font-size: 1.6rem; display: flex; gap: .4rem; align-items: center; }
+  .lvl-title { font-size: .95rem; line-height: 1.2; text-align: center; }
+  .menu-footer { text-align: center; margin-top: 2rem; }
+
+  /* ---------- Level screen ---------- */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .6rem 0;
+    background: var(--bg);
+    border-bottom: 2px solid var(--line);
+  }
+  .topbar .btn { font-size: 1.375rem; padding: .35rem .9rem; }
+  .topbar-title { font-weight: 700; font-size: 1.2rem; flex: 1; text-align: right; }
+
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 1.1rem 1.2rem;
+    margin: 1rem 0;
+  }
+  .challenge h1 { font-size: 2rem; margin: 0 0 .5rem; line-height: 1.2; }
+  .story { font-size: 1.25rem; margin: 0 0 .8rem; line-height: 1.9; }
+  .chip {
+    display: inline-block;
+    padding: .05rem .55rem;
+    border-radius: 999px;
+    background: var(--bg);
+    border: 2px solid var(--line);
+    font-weight: 700;
+    line-height: 1.4;
+    max-width: 100%;
+  }
+  .chip-table { background: var(--from-tint); border-color: var(--from); }
+  .chip-col { background: var(--select-tint); border-color: var(--select); }
+  .chip-val { background: var(--where-tint); border-color: var(--where); }
+  .hint-box {
+    margin-top: .8rem;
+    padding: .7rem 1rem;
+    border-radius: var(--radius-sm);
+    background: #FFF6C9;
+    border: 2px dashed #E0B400;
+    font-size: 1.15rem;
+  }
+
+  /* Clause blocks */
+  .clause {
+    border-radius: var(--radius);
+    margin: .8rem 0;
+    padding: .7rem .8rem .8rem;
+    border-left: 12px solid var(--c);
+    background: var(--tint);
+    box-shadow: var(--shadow);
+  }
+  .clause-select { --c: var(--select); --tint: var(--select-tint); }
+  .clause-from   { --c: var(--from);   --tint: var(--from-tint); }
+  .clause-join   { --c: var(--join);   --tint: var(--join-tint); }
+  .clause-where  { --c: var(--where);  --tint: var(--where-tint); }
+  .clause-order  { --c: var(--order);  --tint: var(--order-tint); }
+  .clause-top    { --c: var(--top);    --tint: var(--top-tint); }
+  .clause-head { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; margin-bottom: .55rem; }
+  .kw {
+    background: var(--c);
+    color: var(--text);
+    padding: .2rem .8rem;
+    border-radius: 999px;
+    font-weight: 800;
+    font-size: 1.3rem;
+    letter-spacing: .03em;
+  }
+  .clause-join .kw { color: #fff; }
+  .kid-label { font-style: italic; color: var(--muted); font-size: 1.1rem; font-weight: 600; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: .4rem 0; }
+  .cond-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .45rem;
+    padding: .5rem;
+    margin: .45rem 0;
+    background: rgba(255, 255, 255, .65);
+    border-radius: var(--radius-sm);
+  }
+  .kw-mini { font-weight: 800; font-size: 1.1rem; padding: 0 .2rem; }
+  .op-sign { font-weight: 800; font-size: 1.5rem; padding: 0 .2rem; }
+  .tip { color: var(--muted); font-size: 1rem; font-weight: 600; }
+  .stepper { display: inline-flex; align-items: center; gap: .3rem; }
+  .step-val {
+    min-width: 3.2rem;
+    text-align: center;
+    font-size: 1.7rem;
+    font-weight: 800;
+    background: var(--card);
+    border-radius: var(--radius-sm);
+    padding: .1rem .4rem;
+    border: 2px solid rgba(43, 45, 66, .2);
+  }
+
+  .sql-preview {
+    background: #2B2D42;
+    color: #FFF8E7;
+    border-radius: var(--radius-sm);
+    padding: .6rem .9rem;
+    font-size: 1rem;
+    overflow-wrap: anywhere;
+  }
+  .sql-preview code { font-family: ui-monospace, "DejaVu Sans Mono", monospace; font-size: 1rem; }
+  .sql-label { font-weight: 700; margin-right: .4rem; opacity: .85; }
+
+  .actions { display: flex; flex-wrap: wrap; gap: .75rem; justify-content: center; margin: 1.2rem 0; }
+
+  /* Result table */
+  .result-empty { text-align: center; color: var(--muted); padding: 1rem; font-weight: 600; }
+  .row-count { font-weight: 800; font-size: 1.3rem; margin: 0 0 .5rem; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--radius-sm); border: 2px solid var(--line); }
+  table { border-collapse: collapse; width: 100%; background: var(--card); }
+  th, td { padding: .5rem .75rem; text-align: left; white-space: nowrap; border-bottom: 2px solid var(--line); }
+  th { white-space: normal; min-width: 5.5rem; vertical-align: bottom; background: var(--select-tint); font-size: 1.05rem; position: sticky; top: 0; }
+  th small { display: block; font-weight: 600; opacity: .7; font-size: .85rem; }
+  tbody tr:nth-child(even) td { background: #FFFCF3; }
+  td.num { font-size: 1.35rem; font-weight: 800; text-align: right; }
+
+  .msg {
+    border-radius: var(--radius);
+    padding: .9rem 1.1rem;
+    margin: 1rem 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    border: 3px solid;
+  }
+  .msg-error { background: var(--error-tint); border-color: var(--error); }
+  .msg-retry { background: var(--where-tint); border-color: var(--where); }
+  .msg-success { background: var(--success-tint); border-color: var(--success); }
+  .msg small { display: block; font-weight: 600; font-size: 1.05rem; margin-top: .3rem; }
+  .wiggle { animation: wiggle .5s ease; }
+
+  /* ---------- Modals ---------- */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgba(43, 45, 66, .45);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+  }
+  .modal {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 560px;
+    max-height: 85vh;
+    overflow-y: auto;
+    background: var(--bg);
+    border-radius: 24px 24px 0 0;
+    padding: 1.2rem 1rem 1.6rem;
+    box-shadow: 0 -6px 30px rgba(0, 0, 0, .25);
+    animation: slide-up .22s ease;
+  }
+  .modal h2 { margin: 0 0 .8rem; font-size: 1.6rem; padding-right: 3.5rem; }
+  .modal .close { position: absolute; top: .8rem; right: .8rem; }
+  .modal-center { text-align: center; }
+  .modal-center h2 { padding: 0; font-size: 2.1rem; }
+  .picker-group h3 { font-size: 1.15rem; margin: .8rem 0 .4rem; color: var(--muted); }
+  .picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: .6rem; }
+  .picker-grid .pick { justify-content: flex-start; width: 100%; min-height: 3.4rem; }
+  .picker-grid .pick small { font-size: .95rem; font-weight: 600; color: var(--muted); }
+  .picker-grid .pick.current { border: 3px solid var(--text); background: var(--select-tint); }
+  .big-emoji { font-size: 4.5rem; line-height: 1.1; }
+  .center { justify-content: center; }
+
+  @media (min-width: 640px) {
+    .modal-backdrop { align-items: center; padding: 1rem; }
+    .modal { border-radius: 24px; }
+  }
+
+  /* Emoji burst */
+  .burst { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+  .burst span { position: absolute; top: -3rem; animation: fall 2.6s ease-in forwards; }
+
+  /* ---------- Animations ---------- */
+  @keyframes bounce { 0% { transform: scale(1); } 40% { transform: scale(.9); } 70% { transform: scale(1.06); } 100% { transform: scale(1); } }
+  @keyframes wiggle { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-8px) rotate(-1deg); } 40% { transform: translateX(8px) rotate(1deg); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); } }
+  @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  @keyframes slide-up { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes fall { 0% { transform: translateY(0) rotate(0); opacity: 1; } 100% { transform: translateY(110vh) rotate(540deg); opacity: .8; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    .burst { display: none; }
+  }
+</style>
+</head>
+<body>
+<main id="app" aria-live="polite"></main>
+<noscript><p style="padding:1rem">🙈 This game needs JavaScript turned on.</p></noscript>
+
+<!-- =====================================================================
+     ENGINE: pure logic only (data, levels, query engine, progress).
+     No DOM / window / localStorage in here — tests load this block in Node.
+     ===================================================================== -->
+<script id="sqlkids-engine">
+(function () {
+  "use strict";
+
+  /* ---------- Errors ---------- */
+
+  class KidError extends Error {
+    constructor(message) {
+      super(message);
+      this.name = "KidError";
+    }
+  }
+  const kid = (message) => new KidError(message);
+
+  /* ---------- Schema: column list + type per table ---------- */
+
+  const SCHEMA = {
+    animal: { id: "number", name: "text", type: "text", age: "number", color: "text", legs: "number" },
+    food: { id: "number", name: "text", kind: "text", color: "text" },
+    animal_eats_food: { animal_id: "number", food_id: "number", amount: "number" },
+    animal_lives: { animal_id: "number", place: "text" },
+  };
+
+  /* ---------- Seed data ---------- */
+
+  const DATA = {
+    animal: [
+      { id: 1, name: "Tom", type: "cat", age: 3, color: "orange", legs: 4 },
+      { id: 2, name: "Luna", type: "cat", age: 5, color: "black", legs: 4 },
+      { id: 3, name: "Rex", type: "dog", age: 7, color: "brown", legs: 4 },
+      { id: 4, name: "Bolt", type: "dog", age: 2, color: "white", legs: 4 },
+      { id: 5, name: "Coco", type: "rabbit", age: 1, color: "white", legs: 4 },
+      { id: 6, name: "Bruno", type: "bear", age: 12, color: "brown", legs: 4 },
+      { id: 7, name: "Kiki", type: "monkey", age: 6, color: "brown", legs: 2 },
+      { id: 8, name: "Hop", type: "frog", age: 2, color: "green", legs: 4 },
+      { id: 9, name: "Bubbles", type: "fish", age: 1, color: "orange", legs: 0 },
+      { id: 10, name: "Daisy", type: "duck", age: 4, color: "yellow", legs: 2 },
+      { id: 11, name: "Hoot", type: "owl", age: 9, color: "brown", legs: 2 },
+      { id: 12, name: "Nutty", type: "squirrel", age: 3, color: "red", legs: 4 },
+      { id: 13, name: "Leo", type: "lion", age: 10, color: "yellow", legs: 4 },
+      { id: 14, name: "Pingu", type: "penguin", age: 5, color: "black", legs: 2 },
+    ],
+    food: [
+      { id: 1, name: "apple", kind: "fruit", color: "red" },
+      { id: 2, name: "banana", kind: "fruit", color: "yellow" },
+      { id: 3, name: "carrot", kind: "vegetable", color: "orange" },
+      { id: 4, name: "honey", kind: "sweet", color: "yellow" },
+      { id: 5, name: "cheese", kind: "protein", color: "yellow" },
+      { id: 6, name: "bread", kind: "grain", color: "brown" },
+      { id: 7, name: "nuts", kind: "protein", color: "brown" },
+      { id: 8, name: "grapes", kind: "fruit", color: "purple" },
+      { id: 9, name: "corn", kind: "grain", color: "yellow" },
+      { id: 10, name: "meat", kind: "protein", color: "red" },
+      { id: 11, name: "milk", kind: "protein", color: "white" },
+      { id: 12, name: "lettuce", kind: "vegetable", color: "green" },
+    ],
+    // Bubbles (9) and Pingu (14) have no food rows -> INNER JOIN drops them.
+    animal_eats_food: [
+      { animal_id: 1, food_id: 5, amount: 1 },
+      { animal_id: 1, food_id: 11, amount: 2 },
+      { animal_id: 1, food_id: 10, amount: 1 },
+      { animal_id: 2, food_id: 11, amount: 1 },
+      { animal_id: 2, food_id: 10, amount: 2 },
+      { animal_id: 3, food_id: 10, amount: 3 },
+      { animal_id: 3, food_id: 6, amount: 1 },
+      { animal_id: 4, food_id: 10, amount: 2 },
+      { animal_id: 4, food_id: 5, amount: 1 },
+      { animal_id: 4, food_id: 1, amount: 1 },
+      { animal_id: 5, food_id: 3, amount: 3 },
+      { animal_id: 5, food_id: 12, amount: 2 },
+      { animal_id: 5, food_id: 1, amount: 1 },
+      { animal_id: 6, food_id: 4, amount: 4 },
+      { animal_id: 6, food_id: 7, amount: 2 },
+      { animal_id: 6, food_id: 1, amount: 2 },
+      { animal_id: 7, food_id: 2, amount: 5 },
+      { animal_id: 7, food_id: 8, amount: 2 },
+      { animal_id: 7, food_id: 1, amount: 1 },
+      { animal_id: 8, food_id: 12, amount: 1 },
+      { animal_id: 10, food_id: 6, amount: 2 },
+      { animal_id: 10, food_id: 9, amount: 3 },
+      { animal_id: 11, food_id: 10, amount: 1 },
+      { animal_id: 12, food_id: 7, amount: 4 },
+      { animal_id: 12, food_id: 9, amount: 1 },
+      { animal_id: 13, food_id: 10, amount: 5 },
+    ],
+    // Hoot (11) has no place row. Several animals live in 2 places.
+    animal_lives: [
+      { animal_id: 1, place: "house" },
+      { animal_id: 2, place: "house" },
+      { animal_id: 3, place: "house" },
+      { animal_id: 3, place: "farm" },
+      { animal_id: 4, place: "farm" },
+      { animal_id: 5, place: "farm" },
+      { animal_id: 5, place: "forest" },
+      { animal_id: 6, place: "forest" },
+      { animal_id: 6, place: "cave" },
+      { animal_id: 7, place: "tree" },
+      { animal_id: 8, place: "lake" },
+      { animal_id: 9, place: "lake" },
+      { animal_id: 9, place: "ocean" },
+      { animal_id: 10, place: "lake" },
+      { animal_id: 10, place: "farm" },
+      { animal_id: 12, place: "tree" },
+      { animal_id: 12, place: "forest" },
+      { animal_id: 13, place: "desert" },
+      { animal_id: 14, place: "ice" },
+      { animal_id: 14, place: "ocean" },
+    ],
+  };
+
+  /* ---------- Icons ---------- */
+
+  const ICONS = {
+    tables: { animal: "🐾", food: "🍽️", animal_eats_food: "😋", animal_lives: "🏡" },
+    columns: {
+      id: "🔢", name: "🏷️", type: "🐾", age: "🎂", color: "🎨", legs: "🦵",
+      kind: "📦", amount: "🥄", place: "📍", animal_id: "🐾🔢", food_id: "🍽️🔢",
+    },
+    types: {
+      cat: "🐱", dog: "🐶", rabbit: "🐰", bear: "🐻", monkey: "🐵", frog: "🐸",
+      fish: "🐟", duck: "🦆", owl: "🦉", squirrel: "🐿️", lion: "🦁", penguin: "🐧",
+    },
+    foods: {
+      apple: "🍎", banana: "🍌", carrot: "🥕", honey: "🍯", cheese: "🧀", bread: "🍞",
+      nuts: "🥜", grapes: "🍇", corn: "🌽", meat: "🍖", milk: "🥛", lettuce: "🥬",
+    },
+    kinds: { fruit: "🍓", vegetable: "🥦", sweet: "🍬", protein: "💪", grain: "🌾" },
+    places: {
+      tree: "🌳", lake: "🏞️", farm: "🚜", forest: "🌲", cave: "🪨", ocean: "🌊",
+      house: "🏠", desert: "🏜️", mountain: "⛰️", ice: "🧊",
+    },
+    colors: {
+      red: "🔴", orange: "🟠", yellow: "🟡", green: "🟢", blue: "🔵",
+      purple: "🟣", brown: "🟤", black: "⚫", white: "⚪",
+    },
+  };
+
+  // Which icon map belongs to which "table.column".
+  const VALUE_ICON_MAPS = {
+    "animal.type": ICONS.types,
+    "animal.color": ICONS.colors,
+    "food.name": ICONS.foods,
+    "food.kind": ICONS.kinds,
+    "food.color": ICONS.colors,
+    "animal_lives.place": ICONS.places,
+  };
+
+  /** Icon for a cell value, or "" when that value has no icon. */
+  function valueIcon(table, column, value) {
+    const map = VALUE_ICON_MAPS[table + "." + column];
+    if (!map || typeof value !== "string") return "";
+    return map[value.toLowerCase()] || "";
+  }
+
+  /** Icon for a loose value (used by story chips like [[lake]]). */
+  function anyValueIcon(value) {
+    const v = String(value).toLowerCase();
+    for (const map of [ICONS.types, ICONS.foods, ICONS.kinds, ICONS.places, ICONS.colors]) {
+      if (map[v]) return map[v];
+    }
+    return "";
+  }
+
+  /** Distinct values of a column, sorted (used by the value picker). */
+  function columnValues(table, column, data) {
+    const rows = (data || DATA)[table] || [];
+    const seen = new Set(rows.map((r) => r[column]));
+    return [...seen].sort(compareValues);
+  }
+
+  /* ---------- Query helpers ---------- */
+
+  const OPS = ["=", "≠", ">", "<", "≥", "≤"];
+  const OP_ALIASES = { "!=": "≠", "<>": "≠", ">=": "≥", "<=": "≤", "==": "=" };
+  const SQL_OPS = { "=": "=", "≠": "<>", ">": ">", "<": "<", "≥": ">=", "≤": "<=" };
+  const MAX_JOINS = 2;
+
+  function emptyQuery() {
+    return {
+      select: { distinct: false, all: false, columns: [] },
+      from: null,
+      joins: [],
+      where: [],
+      orderBy: [],
+      top: null,
+      offset: null,
+    };
+  }
+
+  /** Tables in play: FROM plus the first `uptoJoin` JOIN tables (skips unpicked ones). */
+  function scopeTables(query, uptoJoin) {
+    const tables = query && query.from ? [query.from] : [];
+    const joins = (query && query.joins) || [];
+    const n = uptoJoin === undefined ? joins.length : uptoJoin;
+    for (let i = 0; i < n && i < joins.length; i++) {
+      if (joins[i] && joins[i].table) tables.push(joins[i].table);
+    }
+    return tables;
+  }
+
+  /** Which clauses a query uses (used to check levels against their `unlocks`). */
+  function usedClauses(query) {
+    const used = ["select", "from"];
+    if (query.select && query.select.distinct) used.push("distinct");
+    if (query.joins && query.joins.length) used.push("join");
+    if (query.where && query.where.length) used.push("where");
+    if (query.orderBy && query.orderBy.length) used.push("orderBy");
+    if (query.top !== null && query.top !== undefined) used.push("top");
+    if (query.offset !== null && query.offset !== undefined) used.push("offset");
+    return used;
+  }
+
+  const typeOfColumn = (ref) => SCHEMA[ref.table][ref.column];
+  const typeOfValue = (v) => (typeof v === "number" ? "number" : "text");
+  const key = (ref) => ref.table + "." + ref.column;
+
+  /**
+   * Turn a column reference into a fully qualified {table, column}.
+   * A ref without a table is looked up in every table in scope.
+   */
+  function resolveColumn(ref, tables) {
+    if (!ref || !ref.column) throw kid("🤔 Pick a column first!");
+    const column = ref.column;
+    if (ref.table) {
+      if (!SCHEMA[ref.table]) throw kid(`🙈 There is no table called '${ref.table}'.`);
+      if (!tables.includes(ref.table)) {
+        throw kid(`🔗 The table '${ref.table}' isn't in your query yet. Add it with FROM or JOIN!`);
+      }
+      if (!(column in SCHEMA[ref.table])) {
+        throw kid(`🔍 The table '${ref.table}' has no column called '${column}'.`);
+      }
+      return { table: ref.table, column };
+    }
+    const matches = tables.filter((t) => column in SCHEMA[t]);
+    if (matches.length === 0) throw kid(`🔍 No table here has a column called '${column}'.`);
+    if (matches.length > 1) {
+      const who = matches.length === 2 ? "Both tables have one!" : "Lots of tables have one!";
+      throw kid(`🧐 Which '${column}' do you mean? ${who}`);
+    }
+    return { table: matches[0], column };
+  }
+
+  /**
+   * Check a query and build an execution plan with resolved columns.
+   * Returns { errors: KidError[], plan }.
+   */
+  function analyze(query) {
+    const errors = [];
+    const plan = { tables: [], joins: [], columns: [], distinct: false, where: [], orderBy: [], top: null, offset: null };
+    const attempt = (fn) => {
+      try {
+        return fn();
+      } catch (e) {
+        if (e instanceof KidError) { errors.push(e); return null; }
+        throw e;
+      }
+    };
+
+    if (!query || typeof query !== "object") {
+      errors.push(kid("🤔 That doesn't look like a query."));
+      return { errors, plan };
+    }
+
+    // FROM: nothing else can be checked without it.
+    if (!query.from) errors.push(kid("🤔 Pick a table in FROM first!"));
+    else if (!SCHEMA[query.from]) errors.push(kid(`🙈 There is no table called '${query.from}'.`));
+    if (errors.length) return { errors, plan };
+    plan.tables.push(query.from);
+
+    // JOIN ... ON: each join must link the new table with a table already in the query.
+    const joins = query.joins || [];
+    if (joins.length > MAX_JOINS) errors.push(kid(`🔗 You can use at most ${MAX_JOINS} JOINs.`));
+    joins.forEach((j) => attempt(() => {
+      if (!j || !j.table) throw kid("🔗 Pick a table to JOIN with!");
+      if (!SCHEMA[j.table]) throw kid(`🙈 There is no table called '${j.table}'.`);
+      if (plan.tables.includes(j.table)) {
+        throw kid(`🔁 '${j.table}' is already in your query. JOIN a different table!`);
+      }
+      const on = j.on || {};
+      if (!on.left || !on.right || !on.left.column || !on.right.column) {
+        throw kid("🔗 Tell JOIN which columns match: pick both sides of ON!");
+      }
+      const before = plan.tables.slice();
+      const all = before.concat(j.table);
+      const left = resolveColumn(on.left, all);
+      const right = resolveColumn(on.right, all);
+      let newSide, oldSide;
+      if (left.table === j.table && before.includes(right.table)) { newSide = left; oldSide = right; }
+      else if (right.table === j.table && before.includes(left.table)) { newSide = right; oldSide = left; }
+      else throw kid(`🔗 ON must connect '${j.table}' with a table that's already in your query!`);
+      if (typeOfColumn(left) !== typeOfColumn(right)) {
+        throw kid("🍎🔢 ON can't match a number with a word. Try matching id columns!");
+      }
+      plan.tables.push(j.table);
+      plan.joins.push({ table: j.table, oldSide, newSide });
+    }));
+    if (errors.length) return { errors, plan };
+    const tables = plan.tables;
+
+    // SELECT
+    const select = query.select || {};
+    plan.distinct = !!select.distinct;
+    if (select.all) {
+      for (const t of tables) for (const c of Object.keys(SCHEMA[t])) plan.columns.push({ table: t, column: c });
+    } else {
+      const cols = select.columns || [];
+      if (!cols.length) errors.push(kid("🤔 Pick at least one column to show (or ALL ⭐)!"));
+      cols.forEach((c) => attempt(() => plan.columns.push(resolveColumn(c, tables))));
+    }
+
+    // WHERE
+    (query.where || []).forEach((c, i) => attempt(() => {
+      if (!c) throw kid("🤔 Your WHERE condition is empty!");
+      const link = i === 0 ? null : c.link;
+      if (i > 0 && link !== "and" && link !== "or") throw kid("🔗 Pick AND or OR to link your conditions!");
+      if (!c.left || !c.left.column) throw kid("🤔 Pick a column to check in WHERE!");
+      const left = resolveColumn(c.left, tables);
+      const op = OP_ALIASES[c.op] || c.op || "=";
+      if (!OPS.includes(op)) throw kid("🤔 Pick a comparison like = or > in WHERE!");
+      const r = c.right || {};
+      let right;
+      if (r.column) {
+        const col = resolveColumn(r, tables);
+        if (typeOfColumn(col) !== typeOfColumn(left)) {
+          throw kid("🍎🔢 Oops! You can't compare a number with a word.");
+        }
+        right = { col };
+      } else if (r.value !== undefined && r.value !== null && r.value !== "") {
+        if (typeOfValue(r.value) !== typeOfColumn(left)) {
+          throw kid("🍎🔢 Oops! You can't compare a number with a word.");
+        }
+        right = { value: r.value };
+      } else {
+        throw kid("🤔 Pick a value to compare with in WHERE!");
+      }
+      plan.where.push({ link, left, op, right });
+    }));
+
+    // ORDER BY
+    (query.orderBy || []).forEach((o) => attempt(() => {
+      if (!o || !o.col) throw kid("🤔 Pick a column to sort by!");
+      const col = resolveColumn(o.col, tables);
+      const dir = o.dir || "asc";
+      if (dir !== "asc" && dir !== "desc") throw kid("🤔 Sort ⬆️ up or ⬇️ down?");
+      plan.orderBy.push({ col, dir });
+    }));
+
+    // TOP / OFFSET
+    if (query.top !== null && query.top !== undefined) {
+      if (!Number.isInteger(query.top)) errors.push(kid("🙈 TOP needs a whole number."));
+      else if (query.top < 1) errors.push(kid("🙈 TOP must be 1 or more."));
+      else plan.top = query.top;
+    }
+    if (query.offset !== null && query.offset !== undefined) {
+      if (!Number.isInteger(query.offset)) errors.push(kid("🙈 OFFSET needs a whole number."));
+      else if (query.offset < 0) errors.push(kid("🙈 OFFSET can't be less than 0."));
+      else plan.offset = query.offset;
+    }
+
+    return { errors, plan };
+  }
+
+  /** List of KidErrors for a query (empty list = the query is fine). */
+  function validate(query) {
+    return analyze(query).errors;
+  }
+
+  /* ---------- Comparing values ---------- */
+
+  /** Sort order: numbers numerically, text case-insensitively. */
+  function compareValues(a, b) {
+    if (typeof a === "number" && typeof b === "number") return a - b;
+    if (typeof a !== typeof b) throw kid("🍎🔢 Oops! You can't compare a number with a word.");
+    const x = String(a).toLowerCase();
+    const y = String(b).toLowerCase();
+    return x < y ? -1 : x > y ? 1 : 0;
+  }
+
+  function testOp(a, op, b) {
+    const d = compareValues(a, b);
+    switch (op) {
+      case "=": return d === 0;
+      case "≠": return d !== 0;
+      case ">": return d > 0;
+      case "<": return d < 0;
+      case "≥": return d >= 0;
+      case "≤": return d <= 0;
+      default: throw kid("🤔 Pick a comparison like = or > in WHERE!");
+    }
+  }
+
+  /* ---------- The engine ---------- */
+
+  /** A table row becomes { "table.column": value, ... } so joined rows never clash. */
+  function prefixRow(table, row) {
+    const out = {};
+    for (const c of Object.keys(SCHEMA[table])) out[table + "." + c] = row[c];
+    return out;
+  }
+
+  /** Split WHERE into OR-groups of AND-ed conditions (AND binds tighter than OR). */
+  function orGroups(conditions) {
+    const groups = [];
+    conditions.forEach((c, i) => {
+      if (i === 0 || c.link === "or") groups.push([c]);
+      else groups[groups.length - 1].push(c);
+    });
+    return groups;
+  }
+
+  /**
+   * Run a query. Order: FROM → JOIN → WHERE → ORDER BY (on full rows, so a
+   * column not in SELECT can be used) → SELECT → DISTINCT → OFFSET → TOP.
+   * Returns { columns: [{table, column}], rows: [[...]] }.
+   */
+  function run(query, data) {
+    data = data || DATA;
+    const { errors, plan } = analyze(query);
+    if (errors.length) throw errors[0];
+
+    // 1. FROM
+    let rows = (data[plan.tables[0]] || []).map((r) => prefixRow(plan.tables[0], r));
+
+    // 2. INNER JOIN: keep only pairs where ON matches.
+    for (const j of plan.joins) {
+      const joined = [];
+      for (const row of rows) {
+        for (const other of data[j.table] || []) {
+          const combined = Object.assign({}, row, prefixRow(j.table, other));
+          if (testOp(combined[key(j.oldSide)], "=", combined[key(j.newSide)])) joined.push(combined);
+        }
+      }
+      rows = joined;
+    }
+
+    // 3. WHERE
+    if (plan.where.length) {
+      const groups = orGroups(plan.where);
+      const holds = (c, row) => {
+        const left = row[key(c.left)];
+        const right = c.right.col ? row[key(c.right.col)] : c.right.value;
+        return testOp(left, c.op, right);
+      };
+      rows = rows.filter((row) => groups.some((g) => g.every((c) => holds(c, row))));
+    }
+
+    // 4. ORDER BY (stable sort, keys in order)
+    if (plan.orderBy.length) {
+      rows = rows
+        .map((row, i) => ({ row, i }))
+        .sort((a, b) => {
+          for (const o of plan.orderBy) {
+            const d = compareValues(a.row[key(o.col)], b.row[key(o.col)]);
+            if (d !== 0) return o.dir === "desc" ? -d : d;
+          }
+          return a.i - b.i;
+        })
+        .map((x) => x.row);
+    }
+
+    // 5. SELECT: project to the chosen columns
+    let out = rows.map((row) => plan.columns.map((c) => row[key(c)]));
+
+    // 6. DISTINCT: keep the first copy of each row
+    if (plan.distinct) {
+      const seen = new Set();
+      out = out.filter((r) => {
+        const k = JSON.stringify(r);
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+    }
+
+    // 7. OFFSET, then 8. TOP
+    if (plan.offset !== null) out = out.slice(plan.offset);
+    if (plan.top !== null) out = out.slice(0, plan.top);
+
+    return { columns: plan.columns.map((c) => ({ table: c.table, column: c.column })), rows: out };
+  }
+
+  /**
+   * Compare two results. Rows compare as a multiset unless ordered is true.
+   * Returns { ok: boolean, reason: string }.
+   */
+  function compareResults(expected, actual, options) {
+    const ordered = !!(options && options.ordered);
+    const sameCols =
+      expected.columns.length === actual.columns.length &&
+      expected.columns.every((c, i) => c.table === actual.columns[i].table && c.column === actual.columns[i].column);
+    if (!sameCols) {
+      return { ok: false, reason: "🏷️ Your columns aren't quite the ones the zoo keeper asked for (check the order too!)." };
+    }
+    if (expected.rows.length !== actual.rows.length) {
+      return { ok: false, reason: `🔢 You got ${actual.rows.length} rows, but the zoo keeper expects ${expected.rows.length}.` };
+    }
+    const keys = (rows) => rows.map((r) => JSON.stringify(r));
+    const e = keys(expected.rows);
+    const a = keys(actual.rows);
+
+    const counts = new Map();
+    for (const k of e) counts.set(k, (counts.get(k) || 0) + 1);
+    let sameBag = true;
+    for (const k of a) {
+      const n = counts.get(k) || 0;
+      if (n === 0) { sameBag = false; break; }
+      counts.set(k, n - 1);
+    }
+    if (!sameBag) return { ok: false, reason: "🧐 Some rows are different from what the zoo keeper wants." };
+    if (ordered && e.some((k, i) => k !== a[i])) {
+      return { ok: false, reason: "🔀 The right rows, but not in the right order!" };
+    }
+    return { ok: true, reason: "" };
+  }
+
+  /** Display-only SQL text for the query (never parsed). Missing parts show as "?". */
+  function toSql(query) {
+    const q = Object.assign(emptyQuery(), query || {});
+    const multi = scopeTables(q).length > 1;
+    const name = (r) => (!r || !r.column ? "?" : multi && r.table ? `${r.table}.${r.column}` : r.column);
+    const lit = (v) => (v === null || v === undefined || v === "" ? "?" : typeof v === "number" ? String(v) : `'${v}'`);
+    const sel = q.select || {};
+    let s = "SELECT ";
+    if (sel.distinct) s += "DISTINCT ";
+    if (q.top !== null && q.top !== undefined) s += `TOP ${q.top} `;
+    s += sel.all ? "*" : sel.columns && sel.columns.length ? sel.columns.map(name).join(", ") : "?";
+    s += ` FROM ${q.from || "?"}`;
+    for (const j of q.joins || []) {
+      const on = j.on || {};
+      s += ` JOIN ${j.table || "?"} ON ${name(on.left)} = ${name(on.right)}`;
+    }
+    if (q.where && q.where.length) {
+      s += " WHERE " + q.where.map((c, i) => {
+        const link = i === 0 ? "" : ` ${(c.link || "and").toUpperCase()} `;
+        const right = c.right && c.right.column ? name(c.right) : lit(c.right && c.right.value);
+        return `${link}${name(c.left)} ${SQL_OPS[c.op] || "?"} ${right}`;
+      }).join("");
+    }
+    if (q.orderBy && q.orderBy.length) {
+      s += " ORDER BY " + q.orderBy.map((o) => `${name(o.col)} ${o.dir === "desc" ? "DESC" : "ASC"}`).join(", ");
+    }
+    if (q.offset !== null && q.offset !== undefined) s += ` OFFSET ${q.offset}`;
+    return s;
+  }
+
+  /* ---------- Levels ---------- */
+
+  // Small builders so solutions stay short and readable.
+  const col = (table, column) => ({ table, column });
+  const ALL = () => ({ distinct: false, all: true, columns: [] });
+  const cols = (...c) => ({ distinct: false, all: false, columns: c });
+  const distinct = (...c) => ({ distinct: true, all: false, columns: c });
+  const where = (link, left, op, value) => ({ link, left, op, right: { value } });
+  const joinOn = (table, left, right) => ({ table, on: { left, right } });
+  const asc = (c) => ({ col: c, dir: "asc" });
+  const desc = (c) => ({ col: c, dir: "desc" });
+  const q = (parts) => Object.assign(emptyQuery(), parts);
+
+  const A = (c) => col("animal", c);
+  const F = (c) => col("food", c);
+  const EATS = (c) => col("animal_eats_food", c);
+  const LIVES = (c) => col("animal_lives", c);
+  const JOIN_LIVES = joinOn("animal_lives", A("id"), LIVES("animal_id"));
+  const JOIN_EATS = joinOn("animal_eats_food", A("id"), EATS("animal_id"));
+  const JOIN_FOOD = joinOn("food", EATS("food_id"), F("id"));
+
+  const WORLDS = [
+    { id: 1, icon: "🌱", name: "SELECT * and FROM" },
+    { id: 2, icon: "🏷️", name: "Pick columns" },
+    { id: 3, icon: "🔍", name: "WHERE" },
+    { id: 4, icon: "🔢", name: "ORDER BY" },
+    { id: 5, icon: "🌟", name: "DISTINCT" },
+    { id: 6, icon: "🏆", name: "TOP and OFFSET" },
+    { id: 7, icon: "🔗", name: "JOIN" },
+    { id: 8, icon: "🚀", name: "Double JOIN" },
+  ];
+
+  const LEVELS = [
+    // World 1 — SELECT * / FROM
+    {
+      id: "w1-l1", world: 1, title: "Hello, animals! 👋",
+      story: "The zoo keeper wants to see ALL the animals. Show every [[animal]] with every column!",
+      hint: "Tap ALL ⭐ in SELECT, then pick 🐾 animal in FROM.",
+      unlocks: ["select", "from"], ordered: false,
+      solution: q({ select: ALL(), from: "animal" }),
+    },
+    {
+      id: "w1-l2", world: 1, title: "Snack time! 🍽️",
+      story: "The zoo cook needs the whole list of [[food]]. Show everything in the food table!",
+      hint: "SELECT ALL ⭐ and FROM 🍽️ food.",
+      unlocks: ["select", "from"], ordered: false,
+      solution: q({ select: ALL(), from: "food" }),
+    },
+    {
+      id: "w1-l3", world: 1, title: "Home sweet home 🏡",
+      story: "Where does everybody live? Show all the rows in [[animal_lives]].",
+      hint: "SELECT ALL ⭐ and FROM 🏡 animal_lives.",
+      unlocks: ["select", "from"], ordered: false,
+      solution: q({ select: ALL(), from: "animal_lives" }),
+    },
+
+    // World 2 — pick columns
+    {
+      id: "w2-l1", world: 2, title: "Name tags 🏷️",
+      story: "The keeper is making name tags. Show only the [[animal.name]] of every [[animal]].",
+      hint: "Tap “Pick columns 🏷️” and add 🏷️ name.",
+      unlocks: ["select", "from"], ordered: false,
+      solution: q({ select: cols(A("name")), from: "animal" }),
+    },
+    {
+      id: "w2-l2", world: 2, title: "Birthday list 🎂",
+      story: "Party time! Show each animal's [[animal.name]] and then its [[animal.age]].",
+      hint: "Pick 🏷️ name first, then 🎂 age. The order you pick is the order you see!",
+      unlocks: ["select", "from"], ordered: false,
+      solution: q({ select: cols(A("name"), A("age")), from: "animal" }),
+    },
+    {
+      id: "w2-l3", world: 2, title: "Rainbow food 🌈",
+      story: "The painter wants the [[food.color]] first and then the [[food.name]] of every [[food]].",
+      hint: "FROM 🍽️ food. Pick 🎨 color first, then 🏷️ name.",
+      unlocks: ["select", "from"], ordered: false,
+      solution: q({ select: cols(F("color"), F("name")), from: "food" }),
+    },
+
+    // World 3 — WHERE
+    {
+      id: "w3-l1", world: 3, title: "Only cats 🐱",
+      story: "Show every column, but only for animals whose [[animal.type]] is [[cat]].",
+      hint: "Add a WHERE condition: 🐾 type = 🐱 cat.",
+      unlocks: ["select", "from", "where"], ordered: false,
+      solution: q({ select: ALL(), from: "animal", where: [where(null, A("type"), "=", "cat")] }),
+    },
+    {
+      id: "w3-l2", world: 3, title: "Grown-ups 🧓",
+      story: "Show the [[animal.name]] and [[animal.age]] of animals older than 5.",
+      hint: "WHERE 🎂 age > 5 (more than).",
+      unlocks: ["select", "from", "where"], ordered: false,
+      solution: q({ select: cols(A("name"), A("age")), from: "animal", where: [where(null, A("age"), ">", 5)] }),
+    },
+    {
+      id: "w3-l3", world: 3, title: "Little ones 🍼",
+      story: "Babies need extra care! Show the [[animal.name]] and [[animal.age]] of animals younger than 3.",
+      hint: "WHERE 🎂 age < 3 (less than).",
+      unlocks: ["select", "from", "where"], ordered: false,
+      solution: q({ select: cols(A("name"), A("age")), from: "animal", where: [where(null, A("age"), "<", 3)] }),
+    },
+    {
+      id: "w3-l4", world: 3, title: "Not four legs 🦵",
+      story: "Show the [[animal.name]] and [[animal.legs]] of animals that do NOT have 4 legs.",
+      hint: "WHERE 🦵 legs ≠ 4 (is not).",
+      unlocks: ["select", "from", "where"], ordered: false,
+      solution: q({ select: cols(A("name"), A("legs")), from: "animal", where: [where(null, A("legs"), "≠", 4)] }),
+    },
+    {
+      id: "w3-l5", world: 3, title: "Brown and big 🟤",
+      story: "Find animals whose [[animal.color]] is [[brown]] AND whose [[animal.age]] is more than 5. Show their [[animal.name]].",
+      hint: "Two conditions linked with AND 🤝: color = brown AND age > 5.",
+      unlocks: ["select", "from", "where"], ordered: false,
+      solution: q({
+        select: cols(A("name")), from: "animal",
+        where: [where(null, A("color"), "=", "brown"), where("and", A("age"), ">", 5)],
+      }),
+    },
+    {
+      id: "w3-l6", world: 3, title: "Cats or dogs 🐱🐶",
+      story: "Show the [[animal.name]] and [[animal.type]] of every [[cat]] OR [[dog]].",
+      hint: "Two conditions linked with OR 🔀: type = cat OR type = dog.",
+      unlocks: ["select", "from", "where"], ordered: false,
+      solution: q({
+        select: cols(A("name"), A("type")), from: "animal",
+        where: [where(null, A("type"), "=", "cat"), where("or", A("type"), "=", "dog")],
+      }),
+    },
+
+    // World 4 — ORDER BY
+    {
+      id: "w4-l1", world: 4, title: "ABC names 🔤",
+      story: "Line up! Show every [[animal.name]] in ABC order.",
+      hint: "ORDER BY 🏷️ name ⬆️ (A to Z).",
+      unlocks: ["select", "from", "orderBy"], ordered: true,
+      solution: q({ select: cols(A("name")), from: "animal", orderBy: [asc(A("name"))] }),
+    },
+    {
+      id: "w4-l2", world: 4, title: "Oldest first 👴",
+      story: "Show the [[animal.name]] and [[animal.age]] of every animal, oldest first.",
+      hint: "ORDER BY 🎂 age ⬇️ (big to small).",
+      unlocks: ["select", "from", "where", "orderBy"], ordered: true,
+      solution: q({ select: cols(A("name"), A("age")), from: "animal", orderBy: [desc(A("age"))] }),
+    },
+    {
+      id: "w4-l3", world: 4, title: "Team sort 🐾",
+      story: "Show [[animal.type]] and [[animal.name]]. Sort by type (A to Z), and animals of the same type by name (A to Z).",
+      hint: "Two sort keys: first 🐾 type ⬆️, then 🏷️ name ⬆️.",
+      unlocks: ["select", "from", "where", "orderBy"], ordered: true,
+      solution: q({
+        select: cols(A("type"), A("name")), from: "animal",
+        orderBy: [asc(A("type")), asc(A("name"))],
+      }),
+    },
+
+    // World 5 — DISTINCT
+    {
+      id: "w5-l1", world: 5, title: "Kinds of animals 🌟",
+      story: "Which kinds of animals live in the zoo? Show each [[animal.type]] only once.",
+      hint: "SELECT 🐾 type and turn on 🌟 DISTINCT.",
+      unlocks: ["select", "distinct", "from"], ordered: false,
+      solution: q({ select: distinct(A("type")), from: "animal" }),
+    },
+    {
+      id: "w5-l2", world: 5, title: "Paint box 🎨",
+      story: "The painter needs every animal [[animal.color]], but no repeats!",
+      hint: "SELECT 🎨 color FROM 🐾 animal with 🌟 DISTINCT on.",
+      unlocks: ["select", "distinct", "from", "where"], ordered: false,
+      solution: q({ select: distinct(A("color")), from: "animal" }),
+    },
+    {
+      id: "w5-l3", world: 5, title: "Places on the map 📍",
+      story: "Make a map! Show each [[animal_lives.place]] from [[animal_lives]] only once, in ABC order.",
+      hint: "DISTINCT 📍 place, then ORDER BY 📍 place ⬆️.",
+      unlocks: ["select", "distinct", "from", "orderBy"], ordered: true,
+      solution: q({ select: distinct(LIVES("place")), from: "animal_lives", orderBy: [asc(LIVES("place"))] }),
+    },
+
+    // World 6 — TOP / OFFSET
+    {
+      id: "w6-l1", world: 6, title: "The 3 oldest 🏆",
+      story: "Medals for the wise ones! Show the [[animal.name]] and [[animal.age]] of the 3 oldest animals.",
+      hint: "ORDER BY 🎂 age ⬇️, then TOP 3.",
+      unlocks: ["select", "from", "orderBy", "top"], ordered: true,
+      solution: q({ select: cols(A("name"), A("age")), from: "animal", orderBy: [desc(A("age"))], top: 3 }),
+    },
+    {
+      id: "w6-l2", world: 6, title: "Skip the first 2 ⏭️",
+      story: "The first 2 animals in ABC order already had lunch. Show the other [[animal.name]]s in ABC order.",
+      hint: "ORDER BY 🏷️ name ⬆️, then OFFSET 2.",
+      unlocks: ["select", "from", "orderBy", "top", "offset"], ordered: true,
+      solution: q({ select: cols(A("name")), from: "animal", orderBy: [asc(A("name"))], offset: 2 }),
+    },
+    {
+      id: "w6-l3", world: 6, title: "Silver and bronze 🥈🥉",
+      story: "Show the [[animal.name]] and [[animal.age]] of the 2nd and 3rd oldest animals.",
+      hint: "ORDER BY 🎂 age ⬇️, skip 1 with OFFSET, then TOP 2.",
+      unlocks: ["select", "from", "orderBy", "top", "offset"], ordered: true,
+      solution: q({ select: cols(A("name"), A("age")), from: "animal", orderBy: [desc(A("age"))], offset: 1, top: 2 }),
+    },
+
+    // World 7 — JOIN
+    {
+      id: "w7-l1", world: 7, title: "Animals and homes 🔗",
+      story: "Connect [[animal]] with [[animal_lives]] and show ALL the columns. Match [[animal.id]] with [[animal_lives.animal_id]].",
+      hint: "FROM 🐾 animal, JOIN 🏡 animal_lives ON animal.id = animal_lives.animal_id.",
+      unlocks: ["select", "from", "join"], ordered: false,
+      solution: q({ select: ALL(), from: "animal", joins: [JOIN_LIVES] }),
+    },
+    {
+      id: "w7-l2", world: 7, title: "Who lives where? 📍",
+      story: "Show each animal's [[animal.name]] next to its [[animal_lives.place]].",
+      hint: "Same JOIN as before, but pick only 🏷️ name and 📍 place.",
+      unlocks: ["select", "from", "join"], ordered: false,
+      solution: q({ select: cols(A("name"), LIVES("place")), from: "animal", joins: [JOIN_LIVES] }),
+    },
+    {
+      id: "w7-l3", world: 7, title: "Lake friends 🏞️",
+      story: "Who lives at the [[lake]]? Show their [[animal.name]].",
+      hint: "JOIN 🏡 animal_lives, then WHERE 📍 place = 🏞️ lake.",
+      unlocks: ["select", "from", "join", "where"], ordered: false,
+      solution: q({
+        select: cols(A("name")), from: "animal", joins: [JOIN_LIVES],
+        where: [where(null, LIVES("place"), "=", "lake")],
+      }),
+    },
+    {
+      id: "w7-l4", world: 7, title: "Big eaters 🥄",
+      story: "Connect [[animal]] with [[animal_eats_food]]. Show the [[animal.name]] and [[animal_eats_food.amount]] when the amount is at least 4.",
+      hint: "JOIN 😋 animal_eats_food ON animal.id = animal_eats_food.animal_id, then WHERE 🥄 amount ≥ 4.",
+      unlocks: ["select", "from", "join", "where"], ordered: false,
+      solution: q({
+        select: cols(A("name"), EATS("amount")), from: "animal", joins: [JOIN_EATS],
+        where: [where(null, EATS("amount"), "≥", 4)],
+      }),
+    },
+
+    // World 8 — double JOIN and everything together
+    {
+      id: "w8-l1", world: 8, title: "Menu for everyone 🍽️",
+      story: "Show each [[animal.name]] next to the [[food.name]] it eats. You need THREE tables: [[animal]], [[animal_eats_food]] and [[food]]!",
+      hint: "JOIN animal_eats_food ON animal.id = animal_eats_food.animal_id, then JOIN food ON animal_eats_food.food_id = food.id.",
+      unlocks: ["select", "from", "join"], ordered: false,
+      solution: q({ select: cols(A("name"), F("name")), from: "animal", joins: [JOIN_EATS, JOIN_FOOD] }),
+    },
+    {
+      id: "w8-l2", world: 8, title: "Apple fans 🍎",
+      story: "Which animals eat [[apple]]s? Show their [[animal.name]].",
+      hint: "Double JOIN, then WHERE food 🏷️ name = 🍎 apple.",
+      unlocks: ["select", "from", "join", "where"], ordered: false,
+      solution: q({
+        select: cols(A("name")), from: "animal", joins: [JOIN_EATS, JOIN_FOOD],
+        where: [where(null, F("name"), "=", "apple")],
+      }),
+    },
+    {
+      id: "w8-l3", world: 8, title: "Wise apple fans 🎂🍎",
+      story: "Which animals older than 3 eat [[apple]]s? Show their [[animal.name]], oldest first!",
+      hint: "WHERE 🎂 age > 3 AND food name = 🍎 apple, then ORDER BY 🎂 age ⬇️.",
+      unlocks: ["select", "from", "join", "where", "orderBy"], ordered: true,
+      solution: q({
+        select: cols(A("name")), from: "animal", joins: [JOIN_EATS, JOIN_FOOD],
+        where: [where(null, A("age"), ">", 3), where("and", F("name"), "=", "apple")],
+        orderBy: [desc(A("age"))],
+      }),
+    },
+    {
+      id: "w8-l4", world: 8, title: "Sweet tooth 🍯",
+      story: "Which animals eat something [[sweet]] OR a [[fruit]]? Show each [[animal.name]] only once, in ABC order.",
+      hint: "WHERE food 📦 kind = sweet OR kind = fruit, turn on 🌟 DISTINCT, ORDER BY name ⬆️.",
+      unlocks: ["select", "distinct", "from", "join", "where", "orderBy"], ordered: true,
+      solution: q({
+        select: distinct(A("name")), from: "animal", joins: [JOIN_EATS, JOIN_FOOD],
+        where: [where(null, F("kind"), "=", "sweet"), where("or", F("kind"), "=", "fruit")],
+        orderBy: [asc(A("name"))],
+      }),
+    },
+    {
+      id: "w8-l5", world: 8, title: "Grand finale 🚀",
+      story: "The 3 biggest meals! Show [[animal.name]], [[food.name]] and [[animal_eats_food.amount]]. Biggest amount first; same amount → animal names in ABC order.",
+      hint: "ORDER BY 🥄 amount ⬇️, then animal 🏷️ name ⬆️, and TOP 3.",
+      unlocks: ["select", "distinct", "from", "join", "where", "orderBy", "top", "offset"], ordered: true,
+      solution: q({
+        select: cols(A("name"), F("name"), EATS("amount")), from: "animal", joins: [JOIN_EATS, JOIN_FOOD],
+        orderBy: [desc(EATS("amount")), asc(A("name"))], top: 3,
+      }),
+    },
+  ];
+
+  /* ---------- Progress (storage is injected: { get(key), set(key, value) }) ---------- */
+
+  const PROGRESS_KEY = "sqlkids.progress.v1";
+
+  function createProgress(storage, levels) {
+    levels = levels || LEVELS;
+    const load = () => {
+      try {
+        const raw = storage.get(PROGRESS_KEY);
+        const list = raw ? JSON.parse(raw) : [];
+        return new Set(Array.isArray(list) ? list : []);
+      } catch (e) {
+        return new Set();
+      }
+    };
+    let done = load();
+    const save = () => {
+      try { storage.set(PROGRESS_KEY, JSON.stringify([...done])); } catch (e) { /* keep in memory */ }
+    };
+    const indexOf = (id) => levels.findIndex((l) => l.id === id);
+
+    return {
+      isCompleted: (id) => done.has(id),
+      isUnlocked(id) {
+        const i = indexOf(id);
+        if (i < 0) return false;
+        return i === 0 || done.has(id) || done.has(levels[i - 1].id);
+      },
+      complete(id) {
+        if (indexOf(id) < 0) return;
+        done.add(id);
+        save();
+      },
+      completedCount: () => levels.filter((l) => done.has(l.id)).length,
+      reset() {
+        done = new Set();
+        save();
+      },
+    };
+  }
+
+  globalThis.SqlKids = {
+    DATA, LEVELS, ICONS, run, validate, compareResults, createProgress, KidError,
+    SCHEMA, WORLDS, OPS, emptyQuery, scopeTables, usedClauses, toSql,
+    valueIcon, anyValueIcon, columnValues,
+  };
+})();
+</script>
+
+<!-- =====================================================================
+     UI: screens, visual editor, rendering, storage.
+     ===================================================================== -->
+<script id="sqlkids-ui">
+(function () {
+  "use strict";
+
+  const S = globalThis.SqlKids;
+  const { DATA, LEVELS, ICONS, SCHEMA, WORLDS } = S;
+  const root = document.getElementById("app");
+  const $ = (sel) => document.querySelector(sel);
+
+  /* ---------- Tiny DOM helper ---------- */
+
+  function h(tag, props, ...children) {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(props || {})) {
+      if (v === null || v === undefined || v === false) continue;
+      if (k === "class") el.className = v;
+      else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? "" : v);
+    }
+    for (const c of children.flat(Infinity)) {
+      if (c === null || c === undefined || c === false) continue;
+      el.append(c.nodeType ? c : String(c));
+    }
+    return el;
+  }
+
+  const pickRandom = (list) => list[Math.floor(Math.random() * list.length)];
+
+  /* ---------- Storage: localStorage with in-memory fallback ---------- */
+
+  function makeStorage() {
+    const mem = {};
+    let useMem = false;
+    try {
+      localStorage.setItem("sqlkids.test", "1");
+      localStorage.removeItem("sqlkids.test");
+    } catch (e) {
+      useMem = true;
+    }
+    return {
+      get(k) {
+        if (!useMem) {
+          try { return localStorage.getItem(k); } catch (e) { useMem = true; }
+        }
+        return k in mem ? mem[k] : null;
+      },
+      set(k, v) {
+        mem[k] = v;
+        if (!useMem) {
+          try { localStorage.setItem(k, v); } catch (e) { useMem = true; }
+        }
+      },
+    };
+  }
+
+  const progress = S.createProgress(makeStorage());
+
+  /* ---------- App state ---------- */
+
+  const app = {
+    level: null,
+    query: null,
+    result: null,
+    error: null,
+    feedback: null,
+    hintOpen: false,
+  };
+
+  /* ---------- Labels with icons ---------- */
+
+  /** Long names like "animal_eats_food" get line-break hints after "_" and ".". */
+  const breakable = (text) =>
+    String(text).split(/(?<=[_.])/).flatMap((part, i) => (i ? [h("wbr"), part] : [part]));
+
+  const tableLabel = (t) => [`${ICONS.tables[t] || ""} `, breakable(t)];
+  const colText = (c) => [`${ICONS.columns[c] || ""} `, breakable(c)];
+
+  function colLabel(ref, showTable) {
+    return [
+      showTable ? h("span", { class: "tbl-tag" }, `${ICONS.tables[ref.table]} `, breakable(ref.table + ".")) : null,
+      h("span", {}, colText(ref.column)),
+    ];
+  }
+
+  function valueText(table, column, v) {
+    if (typeof v === "number") return String(v);
+    const icon = S.valueIcon(table, column, v);
+    return icon ? `${icon} ${v}` : v;
+  }
+
+  const OP_LABELS = {
+    "=": "is", "≠": "is not", ">": "more than", "<": "less than", "≥": "at least", "≤": "at most",
+  };
+
+  /* ---------- Modals (picker, confirm, celebration) ---------- */
+
+  function openModal(build, options) {
+    options = options || {};
+    const prev = document.activeElement;
+    const prevKey = prev && prev.dataset ? prev.dataset.k : null;
+    const backdrop = h("div", { class: "modal-backdrop" });
+    const box = h("div", { class: "modal " + (options.cls || ""), role: "dialog", "aria-modal": "true" });
+
+    function onKey(e) {
+      if (e.key === "Escape") close();
+    }
+    function close() {
+      backdrop.remove();
+      document.removeEventListener("keydown", onKey);
+      // Return focus to where the player was (the element may have been re-rendered).
+      const target = (prevKey && document.querySelector(`[data-k="${prevKey}"]`)) || prev;
+      if (target && target.isConnected && target.focus) target.focus();
+    }
+
+    if (options.decor) backdrop.append(options.decor);
+    box.append(...[build(close)].flat(Infinity));
+    backdrop.append(box);
+    backdrop.addEventListener("click", (e) => { if (e.target === backdrop) close(); });
+    document.addEventListener("keydown", onKey);
+    document.body.append(backdrop);
+    const first = box.querySelector(".pick.current") || box.querySelector("button:not(.close)") || box.querySelector("button");
+    if (first) first.focus();
+    return close;
+  }
+
+  const closeBtn = (close) => h("button", { class: "remove close", "aria-label": "Close", onclick: close }, "✖️");
+
+  /**
+   * Show a sheet of big buttons. groups: [{ title?, options: [{ label, value, current? }] }]
+   */
+  function openPicker(title, groups, onPick) {
+    openModal((close) => [
+      h("h2", {}, title),
+      closeBtn(close),
+      groups.map((g) => h("div", { class: "picker-group" },
+        g.title ? h("h3", {}, g.title) : null,
+        g.options.length
+          ? h("div", { class: "picker-grid" }, g.options.map((o) =>
+              h("button", {
+                class: "pick" + (o.current ? " current" : ""),
+                onclick: () => { close(); onPick(o.value); },
+              }, o.label)))
+          : h("p", { class: "tip" }, "Nothing left to pick here! 🙂"),
+      )),
+    ]);
+  }
+
+  function pickColumn(title, tables, current, onPick, exclude) {
+    exclude = exclude || [];
+    const groups = tables.map((t) => ({
+      title: tableLabel(t),
+      options: Object.keys(SCHEMA[t])
+        .filter((c) => !exclude.some((e) => e.table === t && e.column === c))
+        .map((c) => ({
+          label: colText(c),
+          value: { table: t, column: c },
+          current: current && current.table === t && current.column === c,
+        })),
+    }));
+    openPicker(title, groups, onPick);
+  }
+
+  /* ---------- Menu screen ---------- */
+
+  function renderMenu() {
+    app.level = null;
+    const done = progress.completedCount();
+    root.replaceChildren(
+      h("header", { class: "menu-hero" },
+        h("div", { class: "logo", "aria-hidden": "true" }, "🐾"),
+        h("h1", {}, "SQL for Kids"),
+        h("p", { class: "tagline" }, "Help the zoo keeper find answers with magic query blocks! ✨"),
+        h("p", { class: "stars" }, `⭐ ${done} / ${LEVELS.length} levels done`)),
+      ...WORLDS.map(worldSection),
+      h("div", { class: "menu-footer" },
+        h("button", { class: "btn btn-soft", onclick: confirmClear }, "Clear progress 🧹")),
+    );
+    window.scrollTo(0, 0);
+  }
+
+  function worldSection(w) {
+    const levels = LEVELS.filter((l) => l.world === w.id);
+    return h("section", { class: "world" },
+      h("h2", {}, `${w.icon} World ${w.id}: ${w.name}`),
+      h("div", { class: "level-grid" }, levels.map(levelButton)));
+  }
+
+  function levelButton(level) {
+    const n = LEVELS.indexOf(level) + 1;
+    const completed = progress.isCompleted(level.id);
+    const unlocked = progress.isUnlocked(level.id);
+    const state = completed ? "✅" : unlocked ? "▶️" : "🔒";
+    const status = completed ? " (done)" : unlocked ? "" : " (locked)";
+    return h("button", {
+      class: "level-btn " + (completed ? "done" : unlocked ? "open" : "locked"),
+      disabled: !unlocked,
+      "aria-label": `Level ${n}: ${level.title}${status}`,
+      onclick: () => openLevel(level.id),
+    },
+      h("span", { class: "lvl-top" }, h("span", {}, n), h("span", { "aria-hidden": "true" }, state)),
+      h("span", { class: "lvl-title" }, level.title));
+  }
+
+  function confirmClear() {
+    openModal((close) => [
+      h("div", { class: "big-emoji", "aria-hidden": "true" }, "🧹"),
+      h("h2", {}, "Clear all progress?"),
+      h("p", {}, "All your ✅ levels will go away and you start again from level 1."),
+      h("div", { class: "row center" },
+        h("button", { class: "btn", onclick: close }, "No, keep it 💾"),
+        h("button", {
+          class: "btn", style: "background: var(--error)",
+          onclick: () => { progress.reset(); close(); renderMenu(); },
+        }, "Yes, clear it 🧹")),
+    ], { cls: "modal-center" });
+  }
+
+  /* ---------- Level screen ---------- */
+
+  function openLevel(id) {
+    const level = LEVELS.find((l) => l.id === id);
+    if (!level || !progress.isUnlocked(id)) return;
+    app.level = level;
+    app.query = S.emptyQuery();
+    app.result = null;
+    app.error = null;
+    app.feedback = null;
+    app.hintOpen = false;
+    renderLevel();
+    window.scrollTo(0, 0);
+  }
+
+  function renderLevel() {
+    const level = app.level;
+    const n = LEVELS.indexOf(level) + 1;
+    const world = WORLDS.find((w) => w.id === level.world);
+    root.replaceChildren(
+      h("header", { class: "topbar" },
+        h("button", { class: "btn", onclick: renderMenu, "aria-label": "Back to menu" }, "⬅️ Menu"),
+        h("div", { class: "topbar-title" },
+          `${world.icon} Level ${n}/${LEVELS.length}${progress.isCompleted(level.id) ? " ✅" : ""}`)),
+      challengeCard(),
+      h("div", { id: "editor" }),
+      h("div", { id: "sql-preview", class: "sql-preview" }),
+      h("div", { class: "actions" },
+        h("button", { class: "btn btn-soft", onclick: clearQuery, "data-k": "clear" }, "🧽 Clear"),
+        h("button", { class: "btn btn-run btn-big", onclick: runQuery, "data-k": "run" }, "▶️ Run"),
+        h("button", { class: "btn btn-check btn-big", onclick: checkAnswer, "data-k": "check" }, "✅ Check answer")),
+      h("div", { id: "result" }),
+      h("div", { id: "feedback", "aria-live": "polite" }),
+    );
+    renderEditor();
+    renderResult();
+    renderFeedback();
+  }
+
+  function challengeCard() {
+    const level = app.level;
+    const hintBox = h("div", { class: "hint-box", id: "hint" }, "💡 ", level.hint);
+    hintBox.hidden = !app.hintOpen;
+    const hintBtn = h("button", {
+      class: "btn btn-soft", "aria-expanded": String(app.hintOpen), "aria-controls": "hint",
+      onclick: () => {
+        app.hintOpen = !app.hintOpen;
+        hintBox.hidden = !app.hintOpen;
+        hintBtn.setAttribute("aria-expanded", String(app.hintOpen));
+        hintBtn.textContent = app.hintOpen ? "💡 Hide hint" : "💡 Hint";
+      },
+    }, app.hintOpen ? "💡 Hide hint" : "💡 Hint");
+    return h("section", { class: "card challenge" },
+      h("h1", {}, level.title),
+      h("p", { class: "story" }, renderStory(level.story)),
+      hintBtn,
+      hintBox);
+  }
+
+  /** Story text with [[table]], [[table.column]] and [[value]] turned into icon chips. */
+  function renderStory(text) {
+    return text.split(/(\[\[[^\]]+\]\])/).filter(Boolean).map((part) => {
+      const m = part.match(/^\[\[(.+)\]\]$/);
+      return m ? tokenChip(m[1]) : part;
+    });
+  }
+
+  function tokenChip(token) {
+    if (SCHEMA[token]) return h("span", { class: "chip chip-table" }, tableLabel(token));
+    const [t, c] = token.split(".");
+    if (c && SCHEMA[t] && c in SCHEMA[t]) {
+      return h("span", { class: "chip chip-col" }, colText(c));
+    }
+    const icon = S.anyValueIcon(token);
+    return h("span", { class: "chip chip-val" }, icon ? `${icon} ${token}` : token);
+  }
+
+  /* ---------- Visual SQL editor ---------- */
+
+  /** Called after every edit: tidy the query, redraw the editor, clear old feedback. */
+  function changed() {
+    prune(app.query);
+    app.feedback = null;
+    renderEditor();
+    renderFeedback();
+  }
+
+  /** Remove references to tables that are no longer in FROM/JOIN. */
+  function prune(q) {
+    q.joins.forEach((j, i) => {
+      const before = S.scopeTables(q, i);
+      if (j.table && before.includes(j.table)) j.table = null;
+      if (j.on.left && !before.includes(j.on.left.table)) j.on.left = null;
+      if (j.on.right && j.on.right.table !== j.table) j.on.right = null;
+    });
+    const tables = S.scopeTables(q);
+    const ok = (ref) => !ref || tables.includes(ref.table);
+    q.select.columns = q.select.columns.filter(ok);
+    q.where = q.where.filter((c) => ok(c.left) && (!c.right || !c.right.column || ok(c.right)));
+    if (q.where[0]) q.where[0].link = null;
+    q.orderBy = q.orderBy.filter((o) => ok(o.col));
+  }
+
+  function renderEditor() {
+    const focusKey = document.activeElement && document.activeElement.dataset
+      ? document.activeElement.dataset.k : null;
+    const unlocks = new Set(app.level.unlocks);
+    const blocks = [];
+    if (unlocks.has("select")) blocks.push(selectBlock(unlocks.has("distinct")));
+    if (unlocks.has("from")) blocks.push(fromBlock());
+    if (unlocks.has("join")) blocks.push(joinBlock());
+    if (unlocks.has("where")) blocks.push(whereBlock());
+    if (unlocks.has("orderBy")) blocks.push(orderBlock());
+    if (unlocks.has("top")) blocks.push(numberBlock("top"));
+    if (unlocks.has("offset")) blocks.push(numberBlock("offset"));
+    $("#editor").replaceChildren(...blocks);
+    $("#sql-preview").replaceChildren(
+      h("span", { class: "sql-label" }, "📜 Real SQL:"),
+      h("code", {}, S.toSql(app.query)));
+    // Keep keyboard focus on the "same" button after redrawing.
+    if (focusKey) {
+      const again = document.querySelector(`[data-k="${focusKey}"]`);
+      if (again && !again.disabled) again.focus();
+    }
+  }
+
+  function block(kind, icon, keyword, label, body) {
+    return h("section", { class: "clause clause-" + kind, "aria-label": `${keyword}: ${label}` },
+      h("div", { class: "clause-head" },
+        h("span", { class: "kw" }, `${icon} ${keyword}`),
+        h("span", { class: "kid-label" }, `“${label}”`)),
+      body);
+  }
+
+  /** A button that opens a picker; with no handler it shows up disabled. */
+  function pickBtn(content, onclick, k, empty) {
+    return h("button", {
+      class: "pick" + (empty ? " empty" : ""), "data-k": k, disabled: !onclick, onclick,
+    }, content, " ▾");
+  }
+
+  const addBtn = (text, onclick, k) =>
+    h("button", { class: "add", "data-k": k, disabled: !onclick, onclick }, text);
+
+  const removeBtn = (label, onclick) =>
+    h("button", { class: "remove", "aria-label": label, onclick }, "✖️");
+
+  function toggle(text, pressed, onclick, k) {
+    return h("button", { class: "toggle", "aria-pressed": String(pressed), "data-k": k, onclick }, text);
+  }
+
+  function stepper(value, min, max, onSet, k, label) {
+    return h("span", { class: "stepper", role: "group", "aria-label": label },
+      h("button", {
+        class: "step", "data-k": k + "-minus", "aria-label": "Less", disabled: value <= min,
+        onclick: () => onSet(Math.max(min, value - 1)),
+      }, "➖"),
+      h("output", { class: "step-val", "aria-live": "polite" }, value),
+      h("button", {
+        class: "step", "data-k": k + "-plus", "aria-label": "More", disabled: value >= max,
+        onclick: () => onSet(Math.min(max, value + 1)),
+      }, "➕"));
+  }
+
+  const needTableTip = () => h("span", { class: "tip" }, "👇 Pick a table in FROM first");
+
+  // SELECT — "show me"
+  function selectBlock(withDistinct) {
+    const q = app.query;
+    const s = q.select;
+    const tables = S.scopeTables(q);
+    const multi = tables.length > 1;
+    const body = [
+      h("div", { class: "row" },
+        toggle("ALL ⭐", s.all, () => { s.all = true; s.columns = []; changed(); }, "sel-all"),
+        toggle("Pick columns 🏷️", !s.all, () => { s.all = false; changed(); }, "sel-pick")),
+    ];
+    if (!s.all) {
+      body.push(h("div", { class: "row" },
+        s.columns.map((c, i) => h("button", {
+          class: "chip-btn", "aria-label": `Remove ${c.column}`,
+          onclick: () => { s.columns.splice(i, 1); changed(); },
+        }, colLabel(c, multi), h("span", { class: "x", "aria-hidden": "true" }, "✖️"))),
+        addBtn("➕ column", tables.length
+          ? () => pickColumn("Show which column? 🏷️", tables, null, (ref) => { s.columns.push(ref); changed(); }, s.columns)
+          : null, "sel-add"),
+        tables.length ? null : needTableTip()));
+      if (s.columns.length > 1) body.push(h("div", { class: "tip" }, "The order you pick is the order you see. Tap a column to remove it."));
+    }
+    if (withDistinct) {
+      body.push(h("div", { class: "row" },
+        toggle(s.distinct ? "🌟 DISTINCT: on" : "🌟 DISTINCT: off", s.distinct,
+          () => { s.distinct = !s.distinct; changed(); }, "sel-distinct"),
+        h("span", { class: "tip" }, "no repeated rows")));
+    }
+    return block("select", "👀", "SELECT", "show me", body);
+  }
+
+  // FROM — "look in"
+  function fromBlock() {
+    const q = app.query;
+    const options = Object.keys(SCHEMA).map((t) => ({ label: tableLabel(t), value: t, current: q.from === t }));
+    return block("from", "📚", "FROM", "look in", h("div", { class: "row" },
+      pickBtn(q.from ? tableLabel(q.from) : "👉 pick a table",
+        () => openPicker("Look in which table? 📚", [{ options }], (t) => { q.from = t; changed(); }),
+        "from", !q.from)));
+  }
+
+  // JOIN ... ON — "connect with"
+  function joinBlock() {
+    const q = app.query;
+    const rows = q.joins.map((j, i) => {
+      const before = S.scopeTables(q, i);
+      const taken = S.scopeTables(q).filter((t) => t !== j.table);
+      const options = Object.keys(SCHEMA)
+        .filter((t) => !taken.includes(t))
+        .map((t) => ({ label: tableLabel(t), value: t, current: j.table === t }));
+      return h("div", { class: "cond-row" },
+        h("span", { class: "kw-mini" }, "JOIN"),
+        pickBtn(j.table ? tableLabel(j.table) : "👉 table",
+          () => openPicker("Connect with which table? 🔗", [{ options }], (t) => {
+            j.table = t;
+            j.on.right = null;
+            changed();
+          }), `j${i}-table`, !j.table),
+        h("span", { class: "kw-mini" }, "ON"),
+        pickBtn(j.on.left ? colLabel(j.on.left, true) : "👉 column",
+          before.length ? () => pickColumn("Match which column? 🔗", before, j.on.left, (r) => { j.on.left = r; changed(); }) : null,
+          `j${i}-left`, !j.on.left),
+        h("span", { class: "op-sign" }, "="),
+        pickBtn(j.on.right ? colLabel(j.on.right, true) : "👉 column",
+          j.table ? () => pickColumn("…with which column? 🔗", [j.table], j.on.right, (r) => { j.on.right = r; changed(); }) : null,
+          `j${i}-right`, !j.on.right),
+        removeBtn("Remove this JOIN", () => { q.joins.splice(i, 1); changed(); }));
+    });
+    const canAdd = q.from && q.joins.length < 2;
+    return block("join", "🔗", "JOIN", "connect with", [
+      rows,
+      h("div", { class: "row" },
+        addBtn("➕ JOIN", canAdd ? () => { q.joins.push({ table: null, on: { left: null, right: null } }); changed(); } : null, "join-add"),
+        q.from ? (q.joins.length >= 2 ? h("span", { class: "tip" }, "2 JOINs is the max") : null) : needTableTip()),
+    ]);
+  }
+
+  // WHERE — "only if"
+  function whereBlock() {
+    const q = app.query;
+    const tables = S.scopeTables(q);
+    const multi = tables.length > 1;
+    const rows = q.where.map((c, i) => h("div", { class: "cond-row" },
+      i === 0
+        ? null
+        : h("span", { class: "row", style: "margin:0" },
+            toggle("AND 🤝", c.link === "and", () => { c.link = "and"; changed(); }, `w${i}-and`),
+            toggle("OR 🔀", c.link === "or", () => { c.link = "or"; changed(); }, `w${i}-or`)),
+      pickBtn(c.left ? colLabel(c.left, multi) : "👉 column",
+        () => pickColumn("Check which column? 🔍", tables, c.left, (r) => { c.left = r; resetRight(c); changed(); }),
+        `w${i}-left`, !c.left),
+      pickBtn(`${c.op} ${OP_LABELS[c.op]}`,
+        () => openPicker("How should we compare? ⚖️",
+          [{ options: S.OPS.map((op) => ({ label: `${op}  ${OP_LABELS[op]}`, value: op, current: op === c.op })) }],
+          (op) => { c.op = op; changed(); }),
+        `w${i}-op`),
+      rightSide(c, i, tables, multi),
+      removeBtn("Remove this condition", () => { q.where.splice(i, 1); changed(); })));
+
+    return block("where", "🔍", "WHERE", "only if", [
+      rows,
+      h("div", { class: "row" },
+        addBtn("➕ condition", tables.length ? () => {
+          q.where.push({ link: q.where.length ? "and" : null, left: null, op: "=", right: { value: null } });
+          changed();
+        } : null, "where-add"),
+        tables.length ? null : needTableTip()),
+      q.where.length > 2 && q.where.some((c) => c.link === "or")
+        ? h("div", { class: "tip" }, "🧲 AND sticks tighter than OR: A OR B AND C means A OR (B AND C).")
+        : null,
+    ]);
+  }
+
+  /** When the left column changes, give the right side a sensible starting value. */
+  function resetRight(c) {
+    const type = SCHEMA[c.left.table][c.left.column];
+    if (c.right && c.right.column && SCHEMA[c.right.table][c.right.column] === type) return;
+    c.right = { value: type === "number" ? S.columnValues(c.left.table, c.left.column)[0] : null };
+  }
+
+  function rightSide(c, i, tables, multi) {
+    if (!c.left) return h("button", { class: "pick empty", disabled: true }, "👉 value");
+    const { table, column } = c.left;
+    const type = SCHEMA[table][column];
+    const isColumn = !!(c.right && c.right.column);
+    const columnMode = isColumn || !!(c.right && c.right.pickingColumn);
+    const swap = h("button", {
+      class: "remove", "data-k": `w${i}-swap`,
+      "aria-label": columnMode ? "Compare with a value instead" : "Compare with another column instead",
+      title: columnMode ? "Use a value" : "Use a column",
+      onclick: () => {
+        if (columnMode) { c.right = null; resetRight(c); }
+        else c.right = { value: null, pickingColumn: true };
+        changed();
+      },
+    }, "🔁");
+
+    if (columnMode) {
+      // Only offer columns of the same type (numbers with numbers, words with words).
+      const otherType = [];
+      for (const t of tables) {
+        for (const col of Object.keys(SCHEMA[t])) if (SCHEMA[t][col] !== type) otherType.push({ table: t, column: col });
+      }
+      const pick = () => pickColumn("Compare with which column? 🏷️", tables, isColumn ? c.right : null,
+        (r) => { c.right = r; changed(); }, otherType);
+      return h("span", { class: "row", style: "margin:0" },
+        pickBtn(isColumn ? colLabel(c.right, multi) : "👉 column", pick, `w${i}-right`, !isColumn), swap);
+    }
+
+    let editor;
+    if (type === "number") {
+      const v = typeof c.right.value === "number" ? c.right.value : 0;
+      editor = stepper(v, 0, 99, (n) => { c.right = { value: n }; changed(); }, `w${i}-num`, "Number to compare with");
+    } else {
+      const values = S.columnValues(table, column);
+      editor = pickBtn(c.right.value ? valueText(table, column, c.right.value) : "👉 value",
+        () => openPicker("Pick a value 🎯",
+          [{ options: values.map((v) => ({ label: valueText(table, column, v), value: v, current: v === c.right.value })) }],
+          (v) => { c.right = { value: v }; changed(); }),
+        `w${i}-right`, !c.right.value);
+    }
+    return h("span", { class: "row", style: "margin:0" }, editor, swap);
+  }
+
+  // ORDER BY — "sort by"
+  function orderBlock() {
+    const q = app.query;
+    const tables = S.scopeTables(q);
+    const multi = tables.length > 1;
+    const rows = q.orderBy.map((o, i) => h("div", { class: "cond-row" },
+      i === 0 ? null : h("span", { class: "kw-mini" }, "then"),
+      pickBtn(o.col ? colLabel(o.col, multi) : "👉 column",
+        () => pickColumn("Sort by which column? 🔢", tables, o.col, (r) => { o.col = r; changed(); }),
+        `o${i}-col`, !o.col),
+      toggle("⬆️ small → big", o.dir === "asc", () => { o.dir = "asc"; changed(); }, `o${i}-asc`),
+      toggle("⬇️ big → small", o.dir === "desc", () => { o.dir = "desc"; changed(); }, `o${i}-desc`),
+      removeBtn("Remove this sort", () => { q.orderBy.splice(i, 1); changed(); })));
+    return block("order", "🔢", "ORDER BY", "sort by", [
+      rows,
+      h("div", { class: "row" },
+        addBtn("➕ sort", tables.length ? () => { q.orderBy.push({ col: null, dir: "asc" }); changed(); } : null, "order-add"),
+        tables.length ? null : needTableTip()),
+    ]);
+  }
+
+  // TOP — "only the first" / OFFSET — "skip"
+  function numberBlock(which) {
+    const q = app.query;
+    const isTop = which === "top";
+    const keyword = isTop ? "TOP" : "OFFSET";
+    const min = isTop ? 1 : 0;
+    const value = q[which];
+    const body = value === null
+      ? h("div", { class: "row" },
+          addBtn(`➕ use ${keyword}`, () => { q[which] = isTop ? 3 : 1; changed(); }, `${which}-add`))
+      : h("div", { class: "row" },
+          stepper(value, min, 99, (n) => { q[which] = n; changed(); }, which, `${keyword} number`),
+          h("span", { class: "tip" }, isTop ? "rows" : "rows skipped"),
+          removeBtn(`Remove ${keyword}`, () => { q[which] = null; changed(); }));
+    return block("top", isTop ? "✂️" : "⏭️", keyword, isTop ? "only the first" : "skip", body);
+  }
+
+  /* ---------- Run / check ---------- */
+
+  function clearQuery() {
+    app.query = S.emptyQuery();
+    app.result = null;
+    app.error = null;
+    app.feedback = null;
+    renderEditor();
+    renderResult();
+    renderFeedback();
+  }
+
+  /** Run the player's query. Returns the result, or null when it has a problem. */
+  function execute() {
+    try {
+      app.result = S.run(app.query, DATA);
+      app.error = null;
+    } catch (e) {
+      app.result = null;
+      app.error = e instanceof S.KidError ? e.message : "😵 Something went wrong. Try again!";
+    }
+    renderResult();
+    return app.result;
+  }
+
+  function runQuery(e) {
+    bounce(e);
+    app.feedback = null;
+    renderFeedback();
+    execute();
+    $("#result").scrollIntoView({ behavior: prefersMotion() ? "smooth" : "auto", block: "nearest" });
+  }
+
+  function checkAnswer(e) {
+    bounce(e);
+    const actual = execute();
+    if (!actual) {
+      showFeedback({ type: "retry", text: "Almost! Fix the little problem above and try again 💪" });
+      return;
+    }
+    const expected = S.run(app.level.solution, DATA);
+    const cmp = S.compareResults(expected, actual, { ordered: app.level.ordered });
+    if (cmp.ok) {
+      progress.complete(app.level.id);
+      showFeedback({ type: "success", text: "🎉 You solved it!" });
+      celebrate();
+    } else {
+      showFeedback({ type: "retry", text: "Almost! Try again 💪", detail: cmp.reason });
+    }
+  }
+
+  function showFeedback(fb) {
+    app.feedback = fb;
+    renderFeedback();
+    const el = $("#feedback");
+    if (el && el.firstChild) el.firstChild.scrollIntoView({ behavior: prefersMotion() ? "smooth" : "auto", block: "nearest" });
+  }
+
+  function renderFeedback() {
+    const el = $("#feedback");
+    if (!el) return;
+    const fb = app.feedback;
+    if (!fb) { el.replaceChildren(); return; }
+    const cls = fb.type === "success" ? "msg-success" : fb.type === "error" ? "msg-error wiggle" : "msg-retry wiggle";
+    el.replaceChildren(h("div", { class: "msg " + cls, role: fb.type === "success" ? "status" : "alert" },
+      fb.text, fb.detail ? h("small", {}, fb.detail) : null));
+  }
+
+  /* ---------- Result table ---------- */
+
+  function renderResult() {
+    const el = $("#result");
+    if (!el) return;
+    if (app.error) {
+      el.replaceChildren(h("div", { class: "msg msg-error wiggle", role: "alert" }, app.error));
+      return;
+    }
+    if (!app.result) {
+      el.replaceChildren(h("div", { class: "result-empty" }, "▶️ Tap Run to see your answer here!"));
+      return;
+    }
+    const res = app.result;
+    const multi = new Set(res.columns.map((c) => c.table)).size > 1;
+    const n = res.rows.length;
+    const icon = ICONS.tables[app.query.from] || "🐾";
+    const count = n === 0 ? "🫥 0 rows — nothing matched!" : `${icon} ${n} ${n === 1 ? "row" : "rows"}`;
+
+    el.replaceChildren(h("section", { class: "card", "aria-label": "Result" },
+      h("p", { class: "row-count" }, count),
+      n === 0 ? null : h("div", { class: "table-wrap", tabindex: "0", "aria-label": "Result table, scrolls sideways" },
+        h("table", {},
+          h("thead", {}, h("tr", {}, res.columns.map((c) => h("th", { scope: "col" },
+            multi ? h("small", {}, tableLabel(c.table)) : null,
+            colText(c.column))))),
+          h("tbody", {}, res.rows.map((row) => h("tr", {}, row.map((v, i) => {
+            const c = res.columns[i];
+            return h("td", { class: typeof v === "number" ? "num" : null }, valueText(c.table, c.column, v));
+          }))))))));
+  }
+
+  /* ---------- Celebration ---------- */
+
+  const prefersMotion = () => !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+
+  function bounce(e) {
+    const btn = e && e.currentTarget;
+    if (!btn || !prefersMotion()) return;
+    btn.classList.remove("bounce");
+    void btn.offsetWidth; // restart the animation
+    btn.classList.add("bounce");
+  }
+
+  function celebrate() {
+    const idx = LEVELS.indexOf(app.level);
+    const next = LEVELS[idx + 1];
+    const burst = h("div", { class: "burst", "aria-hidden": "true" });
+    if (prefersMotion()) {
+      for (let i = 0; i < 28; i++) {
+        const s = h("span", {}, pickRandom(["🎉", "⭐", "🎊", "✨", "🐾", "💖", "🌟", "🍎", "🐱"]));
+        s.style.left = Math.random() * 100 + "%";
+        s.style.fontSize = 1.5 + Math.random() * 2 + "rem";
+        s.style.animationDelay = Math.random() * 0.8 + "s";
+        burst.append(s);
+      }
+    }
+    openModal((close) => [
+      h("div", { class: "big-emoji", "aria-hidden": "true" }, next ? pickRandom(["🏆", "🥳", "🌟", "🎉"]) : "👑"),
+      h("h2", {}, pickRandom(["Great job!", "You did it!", "Super star!", "Amazing!"]) + " 🎉"),
+      h("p", {}, next ? "The zoo keeper is so happy! 🐾" : "You finished ALL the levels! You're a SQL champion! 🏆"),
+      h("div", { class: "row center" },
+        next ? h("button", { class: "btn btn-check btn-big", onclick: () => { close(); openLevel(next.id); } }, "Next level ➡️") : null,
+        h("button", { class: "btn", onclick: () => { close(); renderMenu(); } }, "🏠 Menu"),
+        h("button", { class: "btn btn-soft", onclick: () => { close(); renderLevel(); } }, "Stay here 👀")),
+    ], { cls: "modal-center", decor: burst });
+  }
+
+  /* ---------- Start ---------- */
+
+  renderMenu();
+})();
+</script>
+</body>
+</html>
