@@ -24,5 +24,5 @@
 
 @code {
     // The page talks to Ace from OnAfterRenderAsync, so prerendering adds nothing.
-    private static readonly IComponentRenderMode PageRenderMode = new InteractiveServerRenderMode(prerender: true);
+    private static readonly IComponentRenderMode PageRenderMode = new InteractiveServerRenderMode(prerender: false);
 }

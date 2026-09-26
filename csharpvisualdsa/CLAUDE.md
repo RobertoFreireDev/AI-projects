@@ -210,7 +210,7 @@ Use `PeriodicTimer` in the component, update via `InvokeAsync(StateHasChanged)`,
 
 ## 12. Built-in samples
 
-Samples live in `src/AlgoViz.Web/Samples/NN-name.csx`; the first line (`// Title`) is the dropdown title. The test project embeds the same files.
+Samples live in `src/AlgoViz.Web/Samples/NN-name.csx`; the first line (`// Title`) is the dropdown title. The test project embeds the same files. `00-documentation.csx` is not in the dropdown: the page renders it as a Documentation aside beside the editor (sections split at `// ===== Title =====` lines, trailing comments shown under each code line), with an "Open in editor" button to run it.
 
 Documentation (`00-documentation.csx`, a runnable tour of every Viz API member; keep it in sync when the API changes) · Bubble, selection, insertion, merge, quick, heap sort · binary search · two pointers · balanced parentheses (stack) · BFS with a queue · reverse linked list · BST insert/search/delete · pre/in/post/level-order traversal · n-ary tree build/rename/remove · graph DFS/BFS · Dijkstra · flood fill on a grid · two-sum with a map.
 Every sample must run under the limits and is exercised by a test.

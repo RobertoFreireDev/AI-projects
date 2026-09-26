@@ -48,7 +48,11 @@
                         <div class="docs-code">
                             @foreach (var line in section.Lines)
                             {
-                                <div>@line.Code<span class="comment">@line.Comment</span></div>
+                                <div class="code">@line.Code</div>
+                                @if (line.Comment.Length > 0)
+                                {
+                                    <div class="comment">@line.Comment</div>
+                                }
                             }
                         </div>
                     }
@@ -216,7 +220,7 @@
 
     /// <summary>
     /// Splits the documentation script into sections at its "// ===== Title =====" lines.
-    /// Comment-only lines become notes; code lines keep their trailing comment apart so it can be dimmed.
+    /// Comment-only lines become notes; a code line's trailing comment is split off and shown under it.
     /// </summary>
     private static List<DocSection> ParseDocumentation(string code)
     {
@@ -234,7 +238,7 @@
             else
             {
                 var comment = line.IndexOf(" //", StringComparison.Ordinal);
-                sections[^1].Lines.Add(comment < 0 ? new(line, "") : new(line[..comment], line[comment..]));
+                sections[^1].Lines.Add(comment < 0 ? new(line, "") : new(line[..comment].TrimEnd(), line[(comment + 3)..].Trim()));
             }
         }
         return sections;
