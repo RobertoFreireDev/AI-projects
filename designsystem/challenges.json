@@ -1,0 +1,163 @@
+{
+  "format": "blockprint-pack",
+  "schema": 1,
+  "engine": 1,
+  "id": "core-100",
+  "title": "System Design: 100 Challenges",
+  "version": "0.1.0",
+  "language": "en",
+  "chapters": [
+    {
+      "id": "ch01",
+      "n": 1,
+      "title": "Foundations",
+      "intro": "Clients, servers, tiers and the first database."
+    }
+  ],
+  "concepts": [
+    {
+      "id": "client-server",
+      "term": "Client–server",
+      "def": "A **client** (a browser or an app) asks for something and a **server** does the work and answers. Almost every system in this pack is built from this one idea.",
+      "blocks": ["client-web", "client-mobile", "app-server"]
+    },
+    {
+      "id": "request-response",
+      "term": "Request and response",
+      "def": "The client sends a request and waits until the server sends a response. On the canvas this is a **sync** connection: a solid line with a filled arrow.",
+      "blocks": ["client-web", "app-server"]
+    },
+    {
+      "id": "single-point-of-failure",
+      "term": "Single point of failure",
+      "def": "A part whose failure takes the whole system down. It is acceptable when an outage is cheap and dangerous when it is not.",
+      "blocks": ["app-server"]
+    },
+    {
+      "id": "estimation",
+      "term": "Back-of-the-envelope estimation",
+      "def": "Rough arithmetic with round numbers (a day is about 86,400 seconds, 1 GB is 1,000 MB) to see whether a design is in the right order of magnitude before building it.",
+      "blocks": []
+    }
+  ],
+  "challenges": [
+    {
+      "id": "c001",
+      "chapter": "ch01",
+      "title": "Hello, server",
+      "difficulty": 1,
+      "concepts": ["client-server", "request-response", "single-point-of-failure", "estimation"],
+      "brief": "A product designer wants a personal portfolio site: a home page, a handful of project pages and a contact form. Visitors open it in a web browser.\n\nKeep it as simple as it can be. One server is fine for now — the designer would rather pay for coffee than for infrastructure.",
+      "functional": [
+        "Visitors open the portfolio in a web browser",
+        "The server returns the pages",
+        "The server receives contact-form messages"
+      ],
+      "nonFunctional": [
+        "Pages load in under a second",
+        "Keep the running cost as low as possible"
+      ],
+      "numbers": [
+        { "label": "Visits per day", "value": "2,000" },
+        { "label": "Pages per visit", "value": "4" },
+        { "label": "Average page size", "value": "500 KB" }
+      ],
+      "palette": ["client-web", "client-mobile", "app-server", "sql-db", "object-storage", "cdn"],
+      "roles": [],
+      "start": null,
+      "locked": [],
+      "budget": 4,
+      "estimate": [
+        {
+          "q": "How much data does the site send to visitors per day?",
+          "answer": 4,
+          "unit": "GB/day",
+          "tolerance": 0.5,
+          "workings": "2,000 visits × 4 pages × 500 KB = 4,000,000 KB ≈ 4,000 MB ≈ 4 GB per day."
+        }
+      ],
+      "tradeoff": {
+        "q": "Why is a single server a reasonable choice here?",
+        "choices": [
+          "Servers never fail, so one is always enough.",
+          "The load is tiny and a short outage of a personal site is acceptable, so a second server would mostly add cost.",
+          "One server is always faster than two servers behind a load balancer."
+        ],
+        "correct": 1,
+        "why": "8,000 page views a day is about one request every 10 seconds, which one small server handles easily. A second server would buy availability, not speed — and a portfolio can live with a few minutes of downtime."
+      },
+      "learn": "Every web system starts here: a **client** sends a request and a **server** sends back a response. One server is the cheapest and simplest design; the trade-off is that it is a **single point of failure** — when it goes down, so does the site.\n\nLater challenges add pieces only when a requirement asks for them. Adding a database or a CDN here would work, but it costs more and solves problems this site doesn't have yet.",
+      "expected": {
+        "rules": [
+          {
+            "id": "r-client",
+            "severity": "required",
+            "text": "Visitors use a web browser",
+            "hint": "Start with the person: who opens the site, and with what?",
+            "check": { "count": { "type": "client-web" }, "min": 1 }
+          },
+          {
+            "id": "r-server",
+            "severity": "required",
+            "text": "A server answers the requests",
+            "hint": "Something has to run the site's code and send the pages back.",
+            "check": { "count": { "type": "app-server" }, "min": 1 }
+          },
+          {
+            "id": "r-call",
+            "severity": "required",
+            "text": "The browser sends requests to the server",
+            "hint": "Draw the connection in the direction of the request: from the caller to the one being called.",
+            "check": { "edge": { "from": { "type": "client-web" }, "to": { "type": "app-server" }, "kind": "sync" } }
+          },
+          {
+            "id": "w-client-db",
+            "severity": "warn",
+            "text": "Browsers don't talk to a database directly",
+            "hint": "Anyone can read the code running in a browser, including database passwords. Let the server be the only one that talks to storage.",
+            "check": { "noEdge": { "from": { "category": "client" }, "to": { "type": "sql-db" } } }
+          }
+        ],
+        "solution": {
+          "n": [
+            ["b", "client-web", {}, "Visitor's browser"],
+            ["s", "app-server", {}, "Portfolio server"]
+          ],
+          "e": [["b", "s"]]
+        },
+        "alt": [
+          {
+            "n": [
+              ["b", "client-web"],
+              ["m", "client-mobile"],
+              ["s", "app-server"]
+            ],
+            "e": [["b", "s"], ["m", "s"]]
+          },
+          {
+            "n": [
+              ["b", "client-web"],
+              ["s", "app-server"],
+              ["d", "sql-db", {}, "Contact messages"]
+            ],
+            "e": [["b", "s"], ["s", "d"]]
+          }
+        ],
+        "naive": [
+          {
+            "diagram": { "n": [["b", "client-web"]], "e": [] },
+            "fails": ["r-server", "r-call"]
+          },
+          {
+            "diagram": { "n": [["b", "client-web"], ["s", "app-server"]], "e": [] },
+            "fails": ["r-call"]
+          },
+          {
+            "diagram": { "n": [["b", "client-web"], ["s", "app-server"]], "e": [["s", "b"]] },
+            "fails": ["r-call"]
+          }
+        ]
+      }
+    }
+  ]
+}

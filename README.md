@@ -2,6 +2,14 @@
 
 ## Fun AI projects
 
+### Pdftoforms
+
+Web extension
+
+### Virtualwebcomputer
+
+html only
+
 ### DesignSystem
 
 html only
@@ -14,6 +22,13 @@ html only
 
 dotnet run --project tests/AlgoViz.Tests
 dotnet run --project src/AlgoViz.Web     # http://localhost:5102
+
+### Design system (Blockprint)
+
+html only — system design challenges solved as architecture block diagrams
+
+cd designsystem && python -m http.server     # http://localhost:8000
+(or open designsystem/index.html directly and choose challenges.json)
 
 ### Sql lite visual
 
