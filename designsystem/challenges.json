@@ -4,7 +4,7 @@
   "engine": 1,
   "id": "core-100",
   "title": "System Design: 100 Challenges",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "language": "en",
   "chapters": [
     {
@@ -2128,6 +2128,7 @@
       "nonFunctional": ["Reads keep working at lunchtime peaks", "Writes are never lost"],
       "numbers": [
         { "label": "Page views per day", "value": "5M" },
+        { "label": "Database queries per page view", "value": "10" },
         { "label": "Read/write ratio", "value": "100:1" },
         { "label": "Peak multiplier", "value": "3×" }
       ],
@@ -2138,11 +2139,11 @@
       "budget": 17,
       "estimate": [
         {
-          "q": "What is the average number of reads per second?",
-          "answer": 58,
+          "q": "What is the average number of database reads per second?",
+          "answer": 579,
           "unit": "reads/s",
           "tolerance": 0.5,
-          "workings": "5,000,000 / 86,400 s ≈ 58 reads/s on average (about 175 at a 3× peak)."
+          "workings": "5,000,000 page views × 10 queries / 86,400 s ≈ 579 reads/s on average (about 1,740 at a 3× peak) — posts with comment threads, author cards and sidebars add up."
         }
       ],
       "tradeoff": {
@@ -2794,7 +2795,7 @@
       "title": "One box isn't enough",
       "difficulty": 3,
       "concepts": ["sharding", "consistent-hashing"],
-      "brief": "A messaging app's user database has reached 800 GB and 40,000 queries a second. The biggest machine the cloud sells is already in use, and it is still not enough.\n\nSplit the users across several databases. The team expects to add shards every few months, so adding one must not reshuffle everyone.",
+      "brief": "A messaging app's user database has reached 8 TB and 400,000 queries a second. The biggest machine the cloud sells is already in use, and it is still not enough.\n\nSplit the users across several databases. The team expects to add shards every few months, so adding one must not reshuffle everyone.",
       "functional": ["Look up and update users by user ID", "Add shards as the user base grows"],
       "nonFunctional": [
         "Each shard holds a fair share of users",
@@ -2802,8 +2803,8 @@
       ],
       "numbers": [
         { "label": "Users", "value": "400M" },
-        { "label": "Data per user", "value": "2 KB" },
-        { "label": "Queries per second", "value": "40,000" }
+        { "label": "Data per user", "value": "20 KB" },
+        { "label": "Queries per second", "value": "400,000" }
       ],
       "palette": "chapter",
       "roles": [],
@@ -2813,10 +2814,10 @@
       "estimate": [
         {
           "q": "With 3 shards, how much data does each hold?",
-          "answer": 267,
+          "answer": 2667,
           "unit": "GB",
           "tolerance": 0.5,
-          "workings": "400M × 2 KB = 800 GB; 800 GB / 3 ≈ 267 GB per shard."
+          "workings": "400M × 20 KB = 8 TB = 8,000 GB; 8,000 GB / 3 ≈ 2,667 GB (about 2.7 TB) per shard."
         }
       ],
       "tradeoff": {
@@ -4233,7 +4234,7 @@
         "q": "A Bloom filter says \"maybe present\" for an ID. What happens next?",
         "choices": [
           "The item definitely exists; return it without looking.",
-          "Check the cache and database as usual; about 1% of such answers will turn out to be missing.",
+          "Check the cache and database as usual; about 1% of lookups for missing IDs slip through as false \"maybe\" answers and are caught there.",
           "Reject the request."
         ],
         "correct": 1,
@@ -5609,14 +5610,9 @@
             "id": "r-geo",
             "severity": "required",
             "text": "Users are sent to the nearest region",
-            "hint": "Which kind of DNS knows where the user is?",
+            "hint": "Which kind of DNS knows where the user is? The app looks the name up, then connects to that region itself.",
             "check": {
-              "any": [
-                {
-                  "edge": { "from": { "type": ["client-web", "client-mobile"] }, "to": { "type": "geo-dns" } }
-                },
-                { "path": [{ "type": "geo-dns" }, { "type": "lb" }] }
-              ]
+              "edge": { "from": { "type": ["client-web", "client-mobile"] }, "to": { "type": "geo-dns" } }
             }
           },
           {
@@ -6042,10 +6038,8 @@
             "id": "r-fanout",
             "severity": "required",
             "text": "Updates reach every gateway through pub/sub",
-            "hint": "The gateways subscribe to a topic; draw gateway → topic → gateway.",
-            "check": {
-              "path": [{ "type": "ws-gateway" }, { "type": "pubsub-topic" }, { "type": "ws-gateway" }]
-            }
+            "hint": "Every gateway subscribes to one topic; draw the topic → gateway delivery.",
+            "check": { "edge": { "from": { "type": "pubsub-topic" }, "to": { "type": "ws-gateway" } } }
           },
           {
             "id": "r-source",
@@ -6078,7 +6072,7 @@
             ["a", "app-server", {}, "Scores service"],
             ["d", "sql-db"]
           ],
-          "e": [["f", "lb"], ["lb", "w"], ["w", "t"], ["t", "w"], ["a", "t"], ["a", "d"]]
+          "e": [["f", "lb"], ["lb", "w"], ["t", "w"], ["a", "t"], ["a", "d"]]
         },
         "alt": [],
         "naive": [
@@ -6267,7 +6261,7 @@
             [
               "a",
               "app-server",
-              { "replicas": 2, "stateless": true, "autoscale": true, "minReplicas": 4, "maxReplicas": 60 },
+              { "replicas": 4, "stateless": true, "autoscale": true, "minReplicas": 4, "maxReplicas": 60 },
               "Sale app"
             ],
             ["k", "cache", {}, "Seat map"],
@@ -6353,7 +6347,7 @@
       "tradeoff": {
         "q": "What does the customer lose when the email is sent in the background?",
         "choices": [
-          "Nothing — the email still goes out a few seconds later, and signup no longer depends on the provider being up.",
+          "Only immediacy — the email goes out a few seconds later instead of during the request, and signup no longer depends on the provider being up.",
           "They never get the email.",
           "Their account isn't saved."
         ],
@@ -7321,7 +7315,7 @@
         "correct": 1,
         "why": "You pick which failure you prefer. Losing money silently is worse than handling duplicates, which idempotency keys and a dedup store make harmless."
       },
-      "learn": "\"Exactly once\" in practice is **at-least-once delivery** plus **idempotent processing**: every message carries an ID (subscriber + month), and the worker records processed IDs in a **dedup store** before acting.\n\nThe trade-off is an extra lookup per message and keeping those IDs long enough to catch late redeliveries.",
+      "learn": "\"Exactly once\" in practice is **at-least-once delivery** plus **idempotent processing**: every message carries an ID (subscriber + month), the worker checks a **dedup store** before acting, passes the ID to the provider as an idempotency key, and records it once the charge succeeds. (Recording it *before* charging would turn a crash into a lost charge.)\n\nThe trade-off is an extra lookup per message and keeping those IDs long enough to catch late redeliveries.",
       "expected": {
         "rules": [
           {
@@ -8991,12 +8985,7 @@
             "text": "Users are routed to the nearest region",
             "hint": "Geo DNS.",
             "check": {
-              "any": [
-                {
-                  "edge": { "from": { "type": ["client-web", "client-mobile"] }, "to": { "type": "geo-dns" } }
-                },
-                { "path": [{ "type": "geo-dns" }, { "type": "lb" }] }
-              ]
+              "edge": { "from": { "type": ["client-web", "client-mobile"] }, "to": { "type": "geo-dns" } }
             }
           },
           {
@@ -10833,7 +10822,7 @@
         "Balance reads don't load the ledger"
       ],
       "numbers": [
-        { "label": "Customers", "value": "5M" },
+        { "label": "Customers", "value": "50M" },
         { "label": "Transfers per second at peak", "value": "1,500" },
         { "label": "Balance reads per second", "value": "60,000" },
         { "label": "Audit retention", "value": "7 years" }
@@ -12458,7 +12447,7 @@
       ],
       "numbers": [
         { "label": "Products", "value": "50,000" },
-        { "label": "Orders per day", "value": "30,000" },
+        { "label": "Orders per day", "value": "200,000" },
         { "label": "Peak requests per second", "value": "5,000" }
       ],
       "palette": "all",
@@ -12468,11 +12457,11 @@
       "budget": 63,
       "estimate": [
         {
-          "q": "If 2% of 5,000 peak requests per second are \"place order\", how many order events per second hit the stream?",
-          "answer": 100,
+          "q": "If 0.2% of 5,000 peak requests per second are \"place order\", how many order events per second hit the stream?",
+          "answer": 10,
           "unit": "events/s",
           "tolerance": 0.5,
-          "workings": "5,000 × 0.02 = 100 order events per second at peak."
+          "workings": "5,000 × 0.002 = 10 order events per second at peak — about 4× the daily average of 200,000 / 86,400 s ≈ 2.3 per second. Browsing, not ordering, drives the request load."
         }
       ],
       "tradeoff": {
@@ -12861,13 +12850,6 @@
                 { "type": "search-index" }
               ]
             }
-          },
-          {
-            "id": "w-like",
-            "severity": "warn",
-            "text": "Search queries don't scan the product table",
-            "hint": "Keep product reads for product pages; searches belong in the index.",
-            "check": { "noEdge": { "from": { "type": "search-index" }, "to": { "type": "sql-db" } } }
           }
         ],
         "solution": {
@@ -13673,7 +13655,7 @@
             "severity": "required",
             "text": "Heartbeats refresh presence in a key-value store",
             "hint": "Gateways write presence keys.",
-            "check": { "edge": { "from": { "type": "ws-gateway" }, "to": { "type": ["kv-store", "cache"] } } }
+            "check": { "edge": { "from": { "type": "ws-gateway" }, "to": { "type": "kv-store" } } }
           },
           {
             "id": "r-ttl",
