@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "pdftoformext",
+  "version": "0.1.0",
+  "description": "Load a PDF, extract every field and table from it in memory, and autofill the form on the current page.",
+  "minimum_chrome_version": "119",
+  "permissions": ["storage"],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "pdftoformext — use the arrow button on the page",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "sandbox": {
+    "pages": ["src/sandbox/runner.html"]
+  },
+  "content_security_policy": {
+    "sandbox": "sandbox allow-scripts; default-src 'none'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; child-src 'none'; form-action 'none';"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*", "file://*/*"],
+      "js": ["src/content/bootstrap.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/content/overlay.js",
+        "src/content/overlay.css",
+        "src/lib/pdf-extract.js",
+        "src/lib/autofill.js",
+        "src/lib/mappings.js",
+        "src/sandbox/runner.html",
+        "vendor/pdf.mjs",
+        "vendor/pdf.worker.mjs"
+      ],
+      "matches": ["http://*/*", "https://*/*", "file://*/*"]
+    }
+  ]
+}
