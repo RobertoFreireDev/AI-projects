@@ -10,7 +10,7 @@ Read this whole file before writing code. When a decision here conflicts with a 
 
 > **Current status (user decisions, 2026-09-29)**
 > - Milestones 1–5 and 7–9 are implemented in `index.html` (platform complete).
-> - `challenges.json` holds **one challenge for now** (`c001`, chapter 1). The other 99 follow the plan in §8 later.
+> - `challenges.json` (pack `version` 1.0.0) holds **all 100 challenges** (`c001`–`c100`, 10 chapters of 10, one boss per chapter) following the plan in §8, plus 123 glossary concepts. It passes `?selftest` with 0 errors, 0 warnings, 100/100. Chapters 1–5 use `"palette": "chapter"`, 6–10 use `"all"`.
 > - **No unit tests for now**: the `tests/` folder (§2, §12) is deferred. Until it exists, check a pack with `index.html?selftest` (schema + expected results), and check the page by hand over HTTP and from `file://`. The "`node tests/run.mjs` must pass" rules apply once the tests are written.
 
 ---
