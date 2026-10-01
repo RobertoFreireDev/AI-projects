@@ -1,0 +1,214 @@
+{
+  "format": "cirrus-pack",
+  "schema": 1,
+  "engine": 1,
+  "id": "azure-100",
+  "title": "Azure Architecture: 100 Challenges",
+  "version": "0.1.0",
+  "language": "en",
+  "verified": "2026-10",
+  "chapters": [
+    {
+      "id": "ch01",
+      "n": 1,
+      "title": "Azure foundations",
+      "intro": "Regions, App Service, Azure SQL Database and Blob Storage."
+    }
+  ],
+  "concepts": [
+    {
+      "id": "static-web-apps",
+      "kind": "service",
+      "term": "Azure Static Web Apps",
+      "def": "Hosts static sites (HTML, CSS, JavaScript, images) built from a code repository. Files are served from points of presence around the world, and HTTPS certificates for custom domains are included.",
+      "blocks": ["static-web-apps"],
+      "ref": "What is Azure Static Web Apps?"
+    },
+    {
+      "id": "app-service",
+      "kind": "service",
+      "term": "Azure App Service",
+      "def": "Managed hosting for web apps and APIs. You pick a plan tier and deploy code or a container; Azure runs, patches and load-balances the servers.",
+      "blocks": ["app-service"],
+      "ref": "App Service overview"
+    },
+    {
+      "id": "paas",
+      "kind": "principle",
+      "term": "Platform as a service (PaaS)",
+      "def": "Azure runs the servers, operating system and patching; you bring code or files. You give up some control in exchange for much less operational work.\n\nPrefer PaaS unless you need something only a virtual machine allows.",
+      "blocks": ["static-web-apps", "app-service", "virtual-machine"],
+      "ref": "Choose an Azure compute service"
+    },
+    {
+      "id": "encryption-in-transit",
+      "kind": "principle",
+      "term": "Encryption in transit",
+      "def": "Traffic between users and your services travels over TLS (HTTPS), so nobody on the network path can read or change it. Most Azure PaaS services offer an HTTPS-only setting.",
+      "blocks": ["app-service", "static-web-apps"],
+      "ref": "Azure encryption overview"
+    },
+    {
+      "id": "cost-optimization",
+      "kind": "pillar",
+      "term": "Cost optimization",
+      "def": "The Well-Architected pillar about spending only what the workload needs: right-size tiers, scale with demand and remove what you don't use.",
+      "blocks": [],
+      "ref": "Azure Well-Architected Framework: Cost Optimization"
+    }
+  ],
+  "challenges": [
+    {
+      "id": "c001",
+      "chapter": "ch01",
+      "title": "Hello, Azure",
+      "difficulty": 1,
+      "concepts": ["static-web-apps", "app-service", "paas", "encryption-in-transit", "cost-optimization"],
+      "brief": "A designer wants a personal portfolio site: a dozen pages of project write-ups and images, and a link to email them. Most visitors arrive from a link in a CV, some from other countries.\n\nThey never want to patch a server, and while traffic is low the site should cost next to nothing.",
+      "functional": [
+        "Visitors open the portfolio in a web browser",
+        "Pages and images load from Azure"
+      ],
+      "nonFunctional": [
+        "Every page is served over HTTPS",
+        "No servers or operating systems to patch",
+        "Costs as little as possible while traffic is low",
+        "Loads quickly for visitors in other countries"
+      ],
+      "numbers": [
+        { "label": "Pages", "value": "12" },
+        { "label": "Visits per month (assume)", "value": "2,000" },
+        { "label": "Pages per visit (assume)", "value": "4" },
+        { "label": "Average page weight with images (assume)", "value": "1.5 MB" }
+      ],
+      "palette": ["client-web", "client-mobile", "azure-dns", "static-web-apps", "app-service", "virtual-machine"],
+      "roles": [],
+      "start": null,
+      "locked": [],
+      "budget": 3,
+      "estimate": [
+        {
+          "q": "About how much data does the site send to visitors per month?",
+          "answer": 12,
+          "unit": "GB",
+          "tolerance": 0.5,
+          "workings": "2,000 visits × 4 pages × 1.5 MB = 12,000 MB ≈ 12 GB per month."
+        }
+      ],
+      "tradeoff": {
+        "q": "Why is Static Web Apps a better fit than a virtual machine for this site?",
+        "choices": [
+          "Azure runs and patches the servers and serves the files from locations around the world, so there is nothing to look after.",
+          "Virtual machines can't serve HTTPS.",
+          "Static Web Apps can run any server-side software a virtual machine can."
+        ],
+        "correct": 0,
+        "why": "A VM means an operating system to patch, a web server to configure and a bill even when nobody visits. For a handful of static pages, a managed host removes all of that."
+      },
+      "learn": "For static content, the simplest and cheapest host is one where Azure runs the servers: **Static Web Apps** serves the files from points of presence worldwide, with HTTPS included.\n\n**App Service** fits when the site needs server-side code, but you then choose a plan tier and make sure HTTPS-only is on. The trade-off is control: a managed platform decides the operating system, runtime and scaling options for you.",
+      "expected": {
+        "rules": [
+          {
+            "id": "r-host",
+            "severity": "required",
+            "pillar": "operations",
+            "text": "The site runs on a managed web platform, with no servers to patch",
+            "hint": "Look for a service where Azure runs the servers and you only bring the files or the code.",
+            "check": { "count": { "type": ["static-web-apps", "app-service"] }, "min": 1 }
+          },
+          {
+            "id": "r-serve",
+            "severity": "required",
+            "pillar": "performance",
+            "text": "Visitors' browsers load the pages from that platform",
+            "hint": "Connect the browser to the service that hosts the site, in the direction of the request.",
+            "check": { "path": [{ "type": "client-web" }, { "type": ["static-web-apps", "app-service"] }] }
+          },
+          {
+            "id": "r-https",
+            "severity": "required",
+            "pillar": "security",
+            "text": "Every page is served over HTTPS",
+            "hint": "Static Web Apps always uses HTTPS. App Service has an HTTPS-only setting: make sure it is on.",
+            "check": { "count": { "type": "app-service", "props": { "tls": false } }, "max": 0 }
+          },
+          {
+            "id": "r-edge",
+            "severity": "bonus",
+            "pillar": "performance",
+            "text": "Pages are served from locations close to visitors around the world",
+            "hint": "Some hosts copy static files to many locations worldwide on their own.",
+            "check": {
+              "any": [
+                { "count": { "type": "static-web-apps" }, "min": 1 },
+                { "path": [{ "type": "client-web" }, { "type": "front-door" }, { "type": "app-service" }] }
+              ]
+            }
+          },
+          {
+            "id": "r-cheap",
+            "severity": "bonus",
+            "pillar": "cost",
+            "text": "The whole design costs at most 1 unit while traffic is low",
+            "hint": "Free and entry tiers exist for exactly this kind of site.",
+            "check": { "budget": 1 }
+          },
+          {
+            "id": "r-no-vm",
+            "severity": "warn",
+            "pillar": "operations",
+            "text": "No virtual machine to patch and restart",
+            "hint": "A virtual machine brings an operating system you must update, secure and monitor yourself.",
+            "check": { "count": { "type": "virtual-machine" }, "max": 0 }
+          }
+        ],
+        "solution": {
+          "n": [
+            ["c", "client-web", null, "Visitor"],
+            ["swa", "static-web-apps", { "tier": "Free" }, "Portfolio site"]
+          ],
+          "e": [
+            ["c", "swa", null, { "protocol": "HTTPS" }]
+          ]
+        },
+        "alt": [
+          {
+            "n": [
+              ["c", "client-web", null, "Visitor"],
+              ["app", "app-service", { "tier": "Basic", "tls": true, "managedCert": true }, "Portfolio site"]
+            ],
+            "e": [
+              ["c", "app", null, { "protocol": "HTTPS" }]
+            ]
+          }
+        ],
+        "naive": [
+          {
+            "diagram": {
+              "n": [
+                ["c", "client-web", null, "Visitor"],
+                ["vm", "virtual-machine", null, "Web server"]
+              ],
+              "e": [
+                ["c", "vm"]
+              ]
+            },
+            "fails": ["r-host", "r-serve"]
+          },
+          {
+            "diagram": {
+              "n": [
+                ["c", "client-web", null, "Visitor"],
+                ["app", "app-service", { "tier": "Basic" }, "Portfolio site"]
+              ],
+              "e": [
+                ["c", "app"]
+              ]
+            },
+            "fails": ["r-https"]
+          }
+        ]
+      }
+    }
+  ]
+}
