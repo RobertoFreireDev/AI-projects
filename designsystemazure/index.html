@@ -733,7 +733,7 @@
 // No challenge content here — it all comes from the pack.
 (function () {
   /* ==== [CORE:VERSION] ==== */
-  const ENGINE_VERSION = 1;
+  const ENGINE_VERSION = 2;
   const PACK_FORMAT = 'cirrus-pack';
   const PACK_SCHEMAS = [1];
 
@@ -1239,7 +1239,7 @@
   };
 
   const CHECK_TYPES = ['count', 'capacity', 'edge', 'noEdge', 'path', 'noPath', 'prop', 'edgeProp',
-    'inGroup', 'notInGroup', 'inGroups', 'zoneResilient', 'fanOut', 'budget', 'any', 'not', 'all'];
+    'inGroup', 'notInGroup', 'inGroups', 'zoneResilient', 'fanOut', 'fanIn', 'budget', 'any', 'not', 'all'];
 
   function deepFreeze(o) {
     if (o && typeof o === 'object' && !Object.isFrozen(o)) {
@@ -1378,6 +1378,8 @@
       message: 'Zone redundancy needs a Premium or Isolated plan.', ref: 'Reliability in Azure App Service' },
     { id: 'apim-multiregion', types: ['api-management'], when: { multiRegion: true }, require: { tier: 'Premium' },
       message: 'Multi-region gateways need API Management Premium.', ref: 'Deploy an Azure API Management instance to multiple Azure regions' },
+    { id: 'acr-premium-features', types: ['container-registry'], when: [{ privateEndpoint: true }, { geoReplication: true }], require: { tier: 'Premium' },
+      message: 'Private endpoints and geo-replication need Container Registry Premium.', ref: 'Azure Container Registry service tiers' },
     { id: 'k8s-in-cluster', types: ['k8s-deployment'], inside: 'aks',
       message: 'Kubernetes workloads run inside an AKS cluster.', ref: 'Core concepts for Azure Kubernetes Service' },
     { id: 'global-in-region', types: 'global', notInside: 'region', severity: 'warning',
@@ -1772,7 +1774,7 @@
     count: ['min', 'max'], capacity: ['min'], edge: ['min'], noEdge: [], path: ['kind'], noPath: [],
     prop: ['key', 'eq', 'in', 'gte', 'lte', 'all'], edgeProp: ['key', 'eq', 'in', 'gte', 'lte', 'all'],
     inGroup: ['group'], notInGroup: ['group'], inGroups: ['group', 'distinct'], zoneResilient: ['all'],
-    fanOut: ['min', 'kind'], budget: [], any: [], not: [], all: [],
+    fanOut: ['min', 'kind'], fanIn: ['max', 'from', 'kind'], budget: [], any: [], not: [], all: [],
   };
 
   // `all` is both a combinator (array) and a modifier of prop checks (boolean).
@@ -1857,6 +1859,12 @@
       case 'fanOut':
         checkSel(v, at(path, type), ctx, denv);
         if (!isInt(check.min) || check.min < 1) ctx.err(at(path, 'min'), 'must be a whole number ≥ 1');
+        kindOk(check.kind, at(path, 'kind'));
+        break;
+      case 'fanIn':
+        checkSel(v, at(path, type), ctx, denv);
+        if (check.from !== undefined) checkSel(check.from, at(path, 'from'), ctx, denv);
+        if (!isInt(check.max) || check.max < 1) ctx.err(at(path, 'max'), 'must be a whole number ≥ 1');
         kindOk(check.kind, at(path, 'kind'));
         break;
       case 'budget':
@@ -2304,6 +2312,17 @@
           best = Math.max(best, targets.size);
         }
         return { pass: best >= check.min, detail: `The busiest ${describeSel(v)} connects to ${plural(best, 'block')}; need ${check.min}.` };
+      }
+      case 'fanIn': {
+        // Every matching node is used by at most `max` distinct blocks (matching `from`): e.g. no shared database.
+        let best = 0;
+        for (const n of pick(g, v)) {
+          const sources = new Set(g.edges.filter((e) => e.to === n.id && (!check.kind || e.kind === check.kind) &&
+            (!check.from || selMatches(g.byId.get(e.from), check.from))).map((e) => e.from));
+          best = Math.max(best, sources.size);
+        }
+        const who = check.from ? describeSel(check.from) : 'block';
+        return { pass: best <= check.max, detail: `The busiest ${describeSel(v)} is used by ${plural(best, who)}; allowed at most ${check.max}.` };
       }
       case 'budget': {
         const c = cost(g.diagram);

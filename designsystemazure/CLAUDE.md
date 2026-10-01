@@ -10,7 +10,10 @@ Read this whole file before writing code. When a decision here conflicts with a 
 
 > **Current status (user decisions, 2026-10-01)**
 > - Platform milestones 1–5 and 7–9 are implemented in `index.html`, adapted from the Blockprint platform (`../designsystem`): Azure catalog (77 blocks, 7 group types), the §4.7 constraints, cost, pack parser/schema, validator with `inGroup` and `zoneResilient`, pillar scorecard, AZ-band layout, editor with live constraint badges and a cost meter, list mode, glossary tabs, export/import, `?selftest`.
-> - **Only one challenge for now**: `challenges.json` (pack `version` 0.1.0) holds `c001` "Hello, Azure" and chapter `ch01` only. It passes `?selftest` with 0 errors, 0 warnings. It uses an explicit `palette` array (with decoys) instead of `"chapter"`. Add the rest of the plan in §8 chapter by chapter.
+> - **Content complete (2026-10-01)**: `challenges.json` (pack `version` 1.0.0, `engine` 2) holds all 100 challenges `c001`–`c100` in 10 chapters following §8, with 161 concepts. It passes `?selftest` with 0 errors and 0 warnings, and the §12.10 shape checks hold: one boss per chapter, placed last; every pillar on ≥15 required/bonus rules; every solution earns 3 stars within its budget; every naive design fails its listed rules; group membership survives auto-layout. `c001` keeps its explicit `palette` array (with decoys); `c002`–`c050` use `"chapter"`, `c051`–`c100` use `"all"`.
+> - Engine additions made for the content (`ENGINE_VERSION` 2): the `fanIn` check (§6.3, used for "no shared database"), and the `acr-premium-features` constraint (§4.7).
+> - Gotcha for authors: a compute block's `role` defaults to the challenge's **first** role, so in challenges with roles, set `role` explicitly on every compute node a rule selects by role.
+> - Content facts were written from model knowledge. Only two were spot-checked live on Microsoft Learn: API Management v2 tiers have a built-in cache, and zone-redundant App Service plans need ≥2 instances. Re-verify the rest per §8.1.
 > - **No unit tests for now**: the `tests/` folder (§2, §12) is deferred. Until it exists, check a pack with `index.html?selftest` and check the page by hand over HTTP and from `file://`. The "`node tests/run.mjs` must pass" rules apply once the tests are written.
 > - Deviations from the text below: clients and external actors have `cost: 0` and `scope: 'external'` (they are not Azure resources); block flags `count`, `cheapWhen`, `zoneRedundantWhen` and `globalWhen` drive count props, the scale-to-zero floor, configuration-based zone redundancy (e.g. Blob ZRS, PostgreSQL zone-redundant HA) and the cross-region Load Balancer being global; group compact rows are `[id, type, members, props?, label?]`; concepts require `kind`.
 > - Constraint `verified` dates (2026-10-01) were set from model knowledge, **not** re-checked live on Microsoft Learn. Re-verify each one (§4.7, §8.1) before relying on them.
@@ -265,6 +268,7 @@ Starting set (true as of mid-2026, **verify each on Microsoft Learn before imple
 | `app-slots` | app-service | `deploymentSlots` ⇒ tier ≠ Basic | Deployment slots start at Standard. |
 | `app-zones` | app-service | zones `zone-redundant` ⇒ tier ∈ PremiumV3/IsolatedV2 | Zone redundancy needs a Premium or Isolated plan. |
 | `apim-multiregion` | api-management | `multiRegion` ⇒ tier Premium | Multi-region gateways need API Management Premium. |
+| `acr-premium-features` | container-registry | `privateEndpoint` or `geoReplication` ⇒ tier Premium | Private endpoints and geo-replication need Container Registry Premium. |
 | `k8s-in-cluster` | k8s-deployment | must be inside an `aks` group | Kubernetes workloads run inside an AKS cluster. |
 | `global-in-region` | any `scope: global` | must not be inside a `region` group | This service is global, not regional. (warning only) |
 
@@ -438,6 +442,7 @@ Rules come from the pack as **declarative JSON data**; the engine owns the meani
 | `{ inGroups: sel, group: sel, distinct: n }` | matching nodes appear in ≥ n distinct groups of that type (regions, zones) |
 | `{ zoneResilient: sel, all? }` | a node passes if its `zones` prop is `zone-redundant`, or if nodes of the same selector sit in ≥ 2 distinct `availability-zone` groups; `aks` group zones count for its workloads |
 | `{ fanOut: sel, min }` | a matching node has ≥ min outgoing edges |
+| `{ fanIn: sel, max, from?: sel, kind? }` | no matching node has more than max distinct incoming sources (matching `from`), e.g. no database shared by two services (engine 2) |
 | `{ budget: max }` | `Core.cost` ≤ max |
 | `{ all: [checks] }`, `{ any: [checks] }`, `{ not: check }` | combinators |
 
