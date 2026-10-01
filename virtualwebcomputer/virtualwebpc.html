@@ -124,6 +124,8 @@ body.nav-closed aside,body.nav-closed .grip{display:none}
 .row .tw.leaf{visibility:hidden}
 .row .gl{width:15px;flex:0 0 15px;display:grid;place-items:center;color:var(--muted)}
 .row.active .gl{color:var(--accent)}
+.row .gl[title]{cursor:pointer;border-radius:4px}
+.row .gl[title]:hover{color:var(--accent);background:var(--raise)}
 .row .label{
   flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
@@ -366,6 +368,14 @@ details:not([open])>summary .dg-dir::before{opacity:.6}
 .dialog input:focus{border-color:var(--accent);outline:none}
 .dialog .acts{display:flex;justify-content:flex-end;gap:8px}
 .dialog.wide{width:520px}
+.icon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:6px;margin:0 0 16px}
+.icon-grid button{
+  height:40px;display:grid;place-items:center;border-radius:6px;cursor:pointer;
+  border:1px solid var(--line);background:var(--panel-2);color:var(--muted);
+}
+.icon-grid button svg{width:20px;height:20px}
+.icon-grid button:hover{background:var(--raise);color:var(--text)}
+.icon-grid button.on{border-color:var(--accent);background:var(--accent-dim);color:var(--accent)}
 .pick-head{
   display:flex;align-items:center;justify-content:space-between;gap:8px;
   margin-bottom:8px;font-size:12px;color:var(--muted)
@@ -600,7 +610,7 @@ async function remove(id){
   if(f.node.type==="folder") each((n, depth) => {
     count++;
     rows += `<div class="pick-row" style="padding-left:${6 + depth * 18}px">
-      <span class="gl">${ICON[n.type]}</span><span class="label">${esc(n.name)}</span></div>`;
+      <span class="gl">${glyph(n)}</span><span class="label">${esc(n.name)}</span></div>`;
   }, f.node.children||[]);
   const ok = await confirmBox(
     "Delete " + (f.node.type==="folder" ? "folder" : "page") + "?",
@@ -636,6 +646,44 @@ const ICON = {
   page:'<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M9 1.8H4.2A1.2 1.2 0 0 0 3 3v10a1.2 1.2 0 0 0 1.2 1.2h7.6A1.2 1.2 0 0 0 13 13V5.8z"/><path d="M9 1.8V5.8H13"/></svg>',
   tw:'<svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M3 1.5 7 5 3 8.5z"/></svg>'
 };
+/* optional per-folder icon, stored as `node.icon` (a key below); absent/unknown = ICON.folder */
+const ico = (label, body) => ({ label, svg:'<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">' + body + '</svg>' });
+const FOLDER_ICON_DEFS = {
+  pc:     ico("Computer", '<path d="M3 2.6h10a1.2 1.2 0 0 1 1.2 1.2v6.4a1.2 1.2 0 0 1-1.2 1.2H3a1.2 1.2 0 0 1-1.2-1.2V3.8A1.2 1.2 0 0 1 3 2.6z"/><path d="M8 11.4v2.2M5.2 13.6h5.6"/>'),
+  trash:  ico("Trash", '<path d="M2.6 4.2h10.8M6.2 4.2V2.6h3.6v1.6M4 4.2l.7 9.2h6.6l.7-9.2M6.6 6.6v4.6M9.4 6.6v4.6"/>'),
+  book:   ico("Book", '<path d="M8 4.2C6.6 3 4.6 2.6 1.8 2.8v9.6c2.8-.2 4.8.2 6.2 1.4 1.4-1.2 3.4-1.6 6.2-1.4V2.8C11.4 2.6 9.4 3 8 4.2zM8 4.2v9.6"/>'),
+  star:   ico("Star", '<path d="M8 2.1l1.47 4.28 4.52.07-3.61 2.72 1.32 4.33L8 10.9l-3.7 2.6 1.32-4.33-3.61-2.72 4.52-.07z"/>'),
+  clock:  ico("Clock", '<circle cx="8" cy="8" r="6.2"/><path d="M8 4.6V8l2.4 1.6"/>'),
+  config: ico("Settings", '<circle cx="8" cy="8" r="2"/><circle cx="8" cy="8" r="4.4"/><path stroke-width="2" d="M8 3.6V1.8M8 12.4v1.8M3.6 8H1.8M12.4 8h1.8M4.9 4.9 3.6 3.6M11.1 11.1l1.3 1.3M4.9 11.1l-1.3 1.3M11.1 4.9l1.3-1.3"/>'),
+  home:   ico("Home", '<path d="M1.8 7.4 8 2.2l6.2 5.2M3.6 6.1v6.7a.8.8 0 0 0 .8.8h7.2a.8.8 0 0 0 .8-.8V6.1M6.6 13.6V10h2.8v3.6"/>'),
+  music:  ico("Music", '<path d="M6 12.2V3.6l7-1.4v8.4"/><circle cx="4.4" cy="12.2" r="1.6"/><circle cx="11.4" cy="10.6" r="1.6"/>'),
+  image:  ico("Pictures", '<rect x="1.8" y="2.8" width="12.4" height="10.4" rx="1.2"/><circle cx="5.4" cy="6.2" r="1.2"/><path d="M1.8 11.6 5.4 8.2 8 10.6l2.4-2.2 3.8 3.6"/>'),
+  code:   ico("Code", '<path d="M5.2 4.4 1.8 8l3.4 3.6M10.8 4.4 14.2 8l-3.4 3.6M9.2 2.8l-2.4 10.4"/>'),
+  mail:   ico("Mail", '<rect x="1.8" y="3.4" width="12.4" height="9.2" rx="1.2"/><path d="M2.2 4.2 8 8.8l5.8-4.6"/>'),
+  archive:ico("Archive", '<rect x="1.8" y="2.6" width="12.4" height="3.2" rx=".8"/><path d="M2.8 5.8v6.8A1.2 1.2 0 0 0 4 13.8h8a1.2 1.2 0 0 0 1.2-1.2V5.8M6.4 8.6h3.2"/>')
+};
+const FOLDER_ICONS = Object.fromEntries(Object.entries(FOLDER_ICON_DEFS).map(([k, d]) => [k, d.svg]));
+const isFolderIcon = k => typeof k === "string" && Object.prototype.hasOwnProperty.call(FOLDER_ICONS, k);
+function glyph(n){
+  return n.type === "folder" && isFolderIcon(n.icon) ? FOLDER_ICONS[n.icon] : ICON[n.type];
+}
+/* picker dialog; "" = the default folder icon, which removes the stored field */
+function iconBox(n){
+  const cur = isFolderIcon(n.icon) ? n.icon : "";
+  const opts = [["", "Default", ICON.folder], ...Object.entries(FOLDER_ICON_DEFS).map(([k, d]) => [k, d.label, d.svg])];
+  const btns = opts.map(([k, label, svg]) =>
+    `<button class="${k === cur ? "on" : ""}" data-icon="${attr(k)}" title="${attr(label)}" aria-label="${attr(label)}" aria-pressed="${k === cur}">${svg}</button>`).join("");
+  openDialog(`<h3>Folder icon</h3><p>Choose an icon for “${esc(n.name)}”.</p><div class="icon-grid">${btns}</div>
+    <div class="acts"><button class="btn ghost" data-a="0">Cancel</button></div>`);
+  dialog.querySelectorAll("[data-icon]").forEach(b => b.onclick = () => {
+    closeDialog();
+    if(b.dataset.icon) n.icon = b.dataset.icon; else delete n.icon;
+    save(); renderTree();
+  });
+  dialog.querySelector('[data-a="0"]').onclick = closeDialog;
+  veil._esc = closeDialog;
+  dialog.querySelector(".icon-grid .on").focus();
+}
 let filter = "";
 function matches(){
   if(!filter) return null;
@@ -675,7 +723,7 @@ function build(nodes, keep){
     const open = keep ? true : !!n.open;
     row.innerHTML =
       `<span class="tw ${n.type==="folder" ? (open?"open":"") : "leaf"}">${ICON.tw}</span>` +
-      `<span class="gl">${ICON[n.type]}</span>` +
+      `<span class="gl"${n.type === "folder" ? ' title="Change icon"' : ""}>${glyph(n)}</span>` +
       `<span class="label">${esc(n.name)}</span>`;
     wire(row, n);
     wrap.appendChild(row);
@@ -692,6 +740,7 @@ function build(nodes, keep){
 function wire(row, n){
   row.addEventListener("click", e => {
     if(e.target.closest(".tw") && n.type === "folder"){ n.open = !n.open; save(); renderTree(); return; }
+    if(e.target.closest(".gl") && n.type === "folder"){ db.selected = n.id; save(); renderTree(); iconBox(n); return; }
     if(n.type === "folder"){ n.open = !n.open; db.selected = n.id; save(); renderTree(); return; }
     db.selected = n.id; save(); renderTree(); open(n.id);
   });
@@ -769,6 +818,7 @@ function openMenu(x, y, n){
     items.push(["New page here", () => addPage()], ["New folder here", () => addFolder()], ["-"]);
   }
   items.push(["Rename", () => renameInTree(n.id)]);
+  if(n.type === "folder") items.push(["Change icon", () => iconBox(n)]);
   if(n.type === "page") items.push(["Duplicate", () => duplicate(n.id)]);
   items.push(["-"], ["Delete", () => remove(n.id), true]);
   showMenu(x, y, items);
@@ -2438,7 +2488,11 @@ function normalize(arr){
     if(!n || typeof n !== "object") continue;
     const type = n.type === "folder" || Array.isArray(n.children) ? "folder" : "page";
     const node = { id:uid(), type, name:String(n.name || (type === "folder" ? "Folder" : "Untitled page")).slice(0, 200) };
-    if(type === "folder"){ node.open = n.open !== false; node.children = normalize(n.children); }
+    if(type === "folder"){
+      node.open = n.open !== false;
+      if(isFolderIcon(n.icon)) node.icon = n.icon;
+      node.children = normalize(n.children);
+    }
     else node.content = clean(String(n.content || ""));
     out.push(node);
   }
@@ -2511,7 +2565,7 @@ function pickBox(title, msg, nodes, label){
     each((n, depth) => {
       rows += `<label class="pick-row" style="padding-left:${6 + depth * 18}px">
         <input type="checkbox" data-id="${n.id}" data-type="${n.type}" checked>
-        <span class="gl">${ICON[n.type]}</span><span class="label">${esc(n.name)}</span></label>`;
+        <span class="gl">${glyph(n)}</span><span class="label">${esc(n.name)}</span></label>`;
     }, nodes);
     dialog.classList.add("wide");
     openDialog(`<h3>${esc(title)}</h3><p>${esc(msg)}</p>

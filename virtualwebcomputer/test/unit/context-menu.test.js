@@ -45,9 +45,9 @@ describe("openMenu()", () => {
     expect(item("Delete").classList.contains("danger")).toBe(true);
   });
 
-  it("offers New page / New folder / Rename / Delete for a folder", () => {
+  it("offers New page / New folder / Rename / Change icon / Delete for a folder", () => {
     contextmenu(app.row("f1"));
-    expect(items()).toEqual(["New page here", "New folder here", "Rename", "Delete"]);
+    expect(items()).toEqual(["New page here", "New folder here", "Rename", "Change icon", "Delete"]);
     expect(app.qa("#menu .div")).toHaveLength(2);
   });
 
