@@ -1,0 +1,298 @@
+@if (error(); as message) {
+  <div class="banner error">{{ message }}</div>
+}
+
+<div class="stack">
+  <!-- ---------- icon ---------- -->
+  <div class="card">
+    <div class="small muted spaced-label">Icon</div>
+    <div class="picker">
+      @for (entry of iconSet; track entry.key) {
+        <button
+          type="button"
+          [attr.aria-pressed]="draft.icon === entry.key"
+          (click)="pickIcon(entry.key)"
+        >
+          <app-icon [name]="entry.key" />
+          <span>{{ entry.label }}</span>
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- ---------- name + active ---------- -->
+  <div class="card stack">
+    <label class="field">
+      <span>Name</span>
+      <input
+        class="input"
+        type="text"
+        [maxlength]="limits.name"
+        placeholder="e.g. Pagar cartão Inter"
+        [(ngModel)]="draft.name"
+        [ngModelOptions]="{ standalone: true }"
+      />
+    </label>
+    <label class="check">
+      <input type="checkbox" [(ngModel)]="draft.active" [ngModelOptions]="{ standalone: true }" />
+      <span>Active (show on Home)</span>
+    </label>
+  </div>
+
+  <!-- ---------- notes ---------- -->
+  <div class="card">
+    <div class="small muted spaced-label">Notes &amp; checklists</div>
+
+    @if (draft.notes.length === 0) {
+      <div class="empty small">No notes. A task can have none.</div>
+    }
+
+    @for (note of draft.notes; track $index; let ni = $index) {
+      <div class="note">
+        <div class="spread">
+          <span class="tiny muted">{{ note.type === 'text' ? 'Text note' : 'Checklist' }}</span>
+          <button
+            class="btn icon ghost"
+            type="button"
+            aria-label="Remove note"
+            (click)="removeNote(ni)"
+          >
+            <app-icon name="ui_x" />
+          </button>
+        </div>
+
+        @if (note.type === 'text') {
+          <textarea
+            class="input"
+            [maxlength]="limits.str"
+            placeholder="Write your note"
+            [(ngModel)]="note.text"
+            [ngModelOptions]="{ standalone: true }"
+          ></textarea>
+        } @else {
+          @for (item of note.items; track $index; let ii = $index) {
+            <div class="row spaced-sm">
+              <input
+                class="input grow"
+                type="text"
+                [maxlength]="limits.str"
+                [placeholder]="'Item ' + (ii + 1)"
+                [(ngModel)]="item.text"
+                [ngModelOptions]="{ standalone: true }"
+              />
+              <button
+                class="btn icon ghost"
+                type="button"
+                aria-label="Remove item"
+                (click)="removeItem(asChecklist(note), ii)"
+              >
+                <app-icon name="ui_x" />
+              </button>
+            </div>
+          }
+          <button class="btn ghost spaced-sm" type="button" (click)="addItem(asChecklist(note))">
+            <app-icon name="ui_plus" />
+            <span>Add item</span>
+          </button>
+        }
+      </div>
+    }
+
+    <div class="wrap spaced">
+      <button class="btn" type="button" (click)="addTextNote()">
+        <app-icon name="ui_plus" />
+        <span>Text note</span>
+      </button>
+      <button class="btn" type="button" (click)="addChecklist()">
+        <app-icon name="ui_plus" />
+        <span>Checklist</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ---------- recurrence ---------- -->
+  <div class="card stack">
+    <div class="small muted">Recurrence</div>
+
+    <label class="field">
+      <span>Repeats</span>
+      <select
+        class="input"
+        [(ngModel)]="draft.recurrence.type"
+        [ngModelOptions]="{ standalone: true }"
+      >
+        @for (t of types; track t.value) {
+          <option [value]="t.value">{{ t.label }}</option>
+        }
+      </select>
+    </label>
+
+    @if (draft.recurrence.type === 'once') {
+      <label class="field">
+        <span>Date</span>
+        <input
+          class="input"
+          type="date"
+          [(ngModel)]="draft.recurrence.date"
+          [ngModelOptions]="{ standalone: true }"
+        />
+      </label>
+      <p class="tiny muted">{{ oncePreview() }}</p>
+    } @else {
+      <label class="field">
+        <span>Every N {{ units[draft.recurrence.type] }}</span>
+        <input
+          class="input"
+          type="number"
+          min="1"
+          max="999"
+          inputmode="numeric"
+          [(ngModel)]="draft.recurrence.interval"
+          [ngModelOptions]="{ standalone: true }"
+          (change)="clampInterval()"
+        />
+      </label>
+
+      <!-- Optional multi-weekday schedule (CLAUDE.md §4.0). -->
+      @if (draft.recurrence.type === 'weekly') {
+        <div class="field">
+          <span>On these weekdays (optional)</span>
+          <div class="days">
+            @for (label of weekdaysMin; track $index; let i = $index) {
+              <button
+                class="day"
+                type="button"
+                [attr.aria-pressed]="hasWeekday(i)"
+                [attr.aria-label]="weekdays[i]"
+                (click)="toggleWeekday(i)"
+              >
+                {{ label }}
+              </button>
+            }
+          </div>
+          <p class="tiny muted">
+            @if (draft.recurrence.daysOfWeek.length) {
+              Due on each selected weekday, in every active week.
+            } @else {
+              None selected — repeats on the same weekday as the start date.
+            }
+          </p>
+        </div>
+      }
+
+      @if (draft.recurrence.type === 'monthly') {
+        <label class="field">
+          <span>Monthly rule</span>
+          <select
+            class="input"
+            [(ngModel)]="draft.recurrence.mode"
+            [ngModelOptions]="{ standalone: true }"
+          >
+            <option value="dayOfMonth">On a day of the month</option>
+            <option value="weekdayOfMonth">On a weekday of the month</option>
+          </select>
+        </label>
+
+        @if (draft.recurrence.mode === 'dayOfMonth') {
+          <label class="field">
+            <span>Day of month</span>
+            <input
+              class="input"
+              type="number"
+              min="1"
+              max="31"
+              inputmode="numeric"
+              [(ngModel)]="draft.recurrence.dayOfMonth"
+              [ngModelOptions]="{ standalone: true }"
+              (change)="clampDayOfMonth()"
+            />
+          </label>
+          <p class="tiny muted">
+            Months shorter than this day clamp to their last day (31 → Feb 28/29).
+          </p>
+        } @else {
+          <div class="grid2">
+            <label class="field">
+              <span>Which</span>
+              <select
+                class="input"
+                [(ngModel)]="draft.recurrence.weekdayOrdinal"
+                [ngModelOptions]="{ standalone: true }"
+              >
+                @for (o of ordinals; track o.value) {
+                  <option [value]="o.value">{{ o.label }}</option>
+                }
+              </select>
+            </label>
+            <label class="field">
+              <span>Weekday</span>
+              <select
+                class="input"
+                [(ngModel)]="draft.recurrence.weekday"
+                [ngModelOptions]="{ standalone: true }"
+              >
+                @for (w of weekdays; track $index; let i = $index) {
+                  <option [ngValue]="i">{{ w }}</option>
+                }
+              </select>
+            </label>
+          </div>
+        }
+      }
+
+      @if (draft.recurrence.type === 'yearly') {
+        <div class="grid2">
+          <label class="field">
+            <span>Month</span>
+            <select
+              class="input"
+              [(ngModel)]="draft.recurrence.month"
+              [ngModelOptions]="{ standalone: true }"
+            >
+              @for (m of months; track $index; let i = $index) {
+                <option [ngValue]="i + 1">{{ m }}</option>
+              }
+            </select>
+          </label>
+          <label class="field">
+            <span>Day</span>
+            <input
+              class="input"
+              type="number"
+              min="1"
+              max="31"
+              inputmode="numeric"
+              [(ngModel)]="draft.recurrence.day"
+              [ngModelOptions]="{ standalone: true }"
+              (change)="clampDay()"
+            />
+          </label>
+        </div>
+        <p class="tiny muted">Feb 29 falls back to Feb 28 in non-leap years.</p>
+      }
+
+      <label class="field">
+        <span>Starts on</span>
+        <input
+          class="input"
+          type="date"
+          [(ngModel)]="draft.recurrence.startDate"
+          [ngModelOptions]="{ standalone: true }"
+        />
+      </label>
+    }
+  </div>
+
+  <!-- ---------- save / delete ---------- -->
+  <button class="btn primary block" type="button" (click)="save()">
+    <app-icon name="ui_check" />
+    <span>Save task</span>
+  </button>
+
+  @if (!isNew) {
+    <button class="btn danger block" type="button" (click)="remove()">
+      <app-icon name="ui_trash" />
+      <span>Delete task</span>
+    </button>
+  }
+</div>

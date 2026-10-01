@@ -1,0 +1,54 @@
+<div class="app">
+  <header class="topbar">
+    @if (chrome.back()) {
+      <button class="btn icon ghost" type="button" aria-label="Back" (click)="goBack()">
+        <app-icon name="ui_back" />
+      </button>
+    }
+
+    <h1>
+      {{ chrome.title() }}
+      @if (chrome.subtitle(); as sub) {
+        <span class="sub">{{ sub }}</span>
+      }
+    </h1>
+
+    @if (chrome.action(); as action) {
+      <button
+        class="btn icon primary"
+        type="button"
+        [attr.aria-label]="action.label"
+        (click)="action.run()"
+      >
+        <app-icon [name]="action.icon" />
+      </button>
+    }
+  </header>
+
+  <main>
+    @if (store.storageBroken()) {
+      <div class="banner error">
+        localStorage is unavailable in this context — changes will not be saved.
+      </div>
+    }
+    <router-outlet />
+  </main>
+
+  <nav class="tabbar" aria-label="Main">
+    @for (tab of tabs; track tab.path) {
+      <a
+        [routerLink]="tab.path"
+        routerLinkActive
+        #active="routerLinkActive"
+        [attr.aria-current]="active.isActive ? 'page' : null"
+      >
+        <app-icon [name]="tab.icon" />
+        <span>{{ tab.label }}</span>
+      </a>
+    }
+  </nav>
+</div>
+
+@if (toast.message(); as message) {
+  <div class="toast" role="status">{{ message }}</div>
+}

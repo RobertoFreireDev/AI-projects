@@ -1,0 +1,119 @@
+<!-- ---------- backup ---------- -->
+<div class="card stack">
+  <div class="card-title">Backup</div>
+  <p class="small muted">
+    Everything lives in this browser only. Export a JSON copy whenever it matters.
+  </p>
+  <button class="btn primary block" type="button" (click)="export()">
+    <app-icon name="ui_download" />
+    <span>Export JSON</span>
+  </button>
+</div>
+
+<!-- ---------- restore ---------- -->
+<div class="card stack">
+  <div class="card-title">Restore</div>
+  <p class="small muted">Pick an exported file. It is validated before anything is written.</p>
+
+  <button class="btn block" type="button" (click)="chooseFile()">
+    <app-icon name="ui_upload" />
+    <span>Choose JSON file</span>
+  </button>
+  <input
+    #filePicker
+    class="sr"
+    type="file"
+    accept="application/json,.json"
+    (change)="onFile($event)"
+  />
+
+  @if (importError(); as message) {
+    <div class="banner error">{{ message }}</div>
+    <button class="btn ghost block" type="button" (click)="cancelImport()">Dismiss</button>
+  }
+
+  @if (pending(); as p) {
+    <div class="banner info">
+      {{ p.name }} — {{ p.count }} {{ p.count === 1 ? 'task' : 'tasks' }}. Merge or replace?
+    </div>
+    <div class="wrap">
+      <button class="btn primary" type="button" (click)="merge()">Merge</button>
+      <button class="btn danger" type="button" (click)="replaceAll()">Replace all</button>
+      <button class="btn ghost" type="button" (click)="cancelImport()">Cancel</button>
+    </div>
+    <p class="tiny muted">
+      Replace all is irreversible: it discards every local task and installs the imported set.
+    </p>
+  }
+</div>
+
+<!-- ---------- this device ---------- -->
+<div class="card stack">
+  <div class="card-title">This device</div>
+  <p class="small muted">
+    {{ store.taskCount() }} task(s), {{ store.activeCount() }} active. Stored under the key
+    "ptm_data".
+  </p>
+  <p class="small muted">
+    Today is {{ fmtDate(store.today()) }}. Offline by design: the app makes no network requests.
+  </p>
+</div>
+
+<!-- ---------- offline install (CLAUDE.md §14) ---------- -->
+<div class="card stack">
+  <div class="card-title">Offline install</div>
+
+  @switch (shell.state()) {
+    @case ('ready') {
+      <div class="banner info">
+        Offline ready — {{ shell.cached() }} shell file(s) cached. This app now opens with the
+        server stopped.
+      </div>
+      @if (shell.insecureScheme) {
+        <p class="small muted">
+          Caching works here only because Chrome was told to trust {{ shell.origin }}. That is
+          enough for offline, but not for a real install: an app installed from an http origin keeps
+          an address bar, or installs as a plain browser shortcut. Serve over https instead —
+          <code>node tools/make-cert.js</code> then <code>node tools/serve.js --https</code>. See
+          PWA-README.md.
+        </p>
+      }
+    }
+    @case ('insecure') {
+      <div class="banner error">
+        Not cached — this page is not on a secure origin, so offline caching is switched off by the
+        browser. The app only works while the server runs.
+      </div>
+      <p class="small muted">
+        Service workers require https, localhost or 127.0.0.1. This page is on
+        {{ shell.origin }}. Fix it by serving over https — <code>node tools/make-cert.js</code>
+        then <code>node tools/serve.js --https</code>. See PWA-README.md.
+      </p>
+    }
+    @case ('failed') {
+      <div class="banner error">
+        Not cached — the service worker did not register. {{ shell.detail() || 'Unknown error.' }}
+      </div>
+    }
+    @case ('dev') {
+      <p class="small muted">
+        Development build — the service worker is disabled on purpose. Run a production build to
+        test offline install.
+      </p>
+    }
+    @case ('file') {
+      <p class="small muted">Opened directly from disk, so there is nothing to cache.</p>
+    }
+    @default {
+      <p class="small muted">Checking the offline cache…</p>
+    }
+  }
+
+  @if (shell.updateReady()) {
+    <div class="banner info">A newer version has been downloaded.</div>
+    <button class="btn block" type="button" (click)="shell.applyUpdate()">
+      <app-icon name="ui_undo" />
+      <span>Reload to update</span>
+    </button>
+  }
+</div>

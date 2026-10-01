@@ -1,0 +1,1656 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: 'self';">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Task Manager</title>
+<style>
+/* ============================================================
+   Personal Task Manager — dark mode only, mobile first.
+   No web fonts, no external anything. See CLAUDE.md §8.
+   ============================================================ */
+:root{
+  color-scheme: dark;
+  --bg:#0e1014;
+  --surface:#161a21;
+  --surface-2:#1e232c;
+  --surface-3:#262c37;
+  --border:#2a313d;
+  --text:#e8ebf1;
+  --muted:#98a1b3;
+  --accent:#7aa2ff;
+  --accent-ink:#0b1020;
+  --done:#3ddc97;
+  --pending:#ffb454;
+  --danger:#ff6b6b;
+  --radius:14px;
+  --radius-sm:10px;
+  --tap:44px;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.28);
+  --font:-apple-system, "Segoe UI", Roboto, sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:var(--font); font-size:16px; line-height:1.45;
+  -webkit-tap-highlight-color:transparent;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3,p{margin:0}
+
+/* ---------- shell ---------- */
+.app{min-height:100%;display:flex;flex-direction:column}
+.topbar{
+  position:sticky;top:0;z-index:20;
+  display:flex;align-items:center;gap:10px;
+  padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;
+  background:rgba(14,16,20,.92);
+  border-bottom:1px solid var(--border);
+}
+.topbar h1{font-size:19px;font-weight:650;letter-spacing:.2px;flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.topbar .sub{display:block;font-size:12px;font-weight:400;color:var(--muted);letter-spacing:0}
+main{flex:1;padding:16px 16px calc(96px + env(safe-area-inset-bottom));max-width:760px;width:100%;margin:0 auto}
+
+/* ---------- bottom tabs ---------- */
+.tabbar{
+  position:fixed;left:0;right:0;bottom:0;z-index:30;
+  display:flex;justify-content:center;gap:4px;
+  padding:6px 8px calc(6px + env(safe-area-inset-bottom));
+  background:rgba(22,26,33,.97);
+  border-top:1px solid var(--border);
+}
+.tabbar button{
+  flex:1;max-width:160px;min-height:var(--tap);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  background:none;border:0;border-radius:var(--radius-sm);
+  color:var(--muted);font-size:11px;cursor:pointer;padding:4px;
+}
+.tabbar button[aria-current="page"]{color:var(--accent);background:var(--surface-2)}
+.tabbar .ic{width:22px;height:22px}
+
+/* ---------- icons ---------- */
+.ic{display:inline-flex;width:24px;height:24px;flex:none}
+.ic svg{width:100%;height:100%;display:block}
+
+/* ---------- generic bits ---------- */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
+.card + .card{margin-top:12px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.tiny{font-size:12px}
+.row{display:flex;align-items:center;gap:10px}
+.spread{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.stack{display:flex;flex-direction:column;gap:12px}
+.wrap{display:flex;flex-wrap:wrap;gap:8px}
+.grow{flex:1;min-width:0}
+.truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+.btn{
+  min-height:var(--tap);display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:0 16px;border-radius:var(--radius-sm);cursor:pointer;
+  background:var(--surface-2);border:1px solid var(--border);color:var(--text);
+  font-size:15px;font-weight:550;
+}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.done{background:var(--done);border-color:var(--done);color:#06281a}
+.btn.danger{color:var(--danger);border-color:#4a2830;background:#241a1e}
+.btn.ghost{background:none;border-color:transparent;color:var(--muted)}
+.btn.block{display:flex;width:100%}
+.btn.icon{padding:0;width:var(--tap);flex:none}
+.btn[disabled]{opacity:.5;cursor:default}
+
+.input,select.input,textarea.input{
+  width:100%;min-height:var(--tap);padding:10px 12px;
+  background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);
+  font-size:16px;
+}
+textarea.input{min-height:80px;resize:vertical;line-height:1.4}
+.input:focus,.btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field > span{font-size:13px;color:var(--muted)}
+
+/* weekday toggles for weekly + daysOfWeek (CLAUDE.md §4.0) */
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.days .day{
+  min-height:var(--tap);display:flex;align-items:center;justify-content:center;
+  background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);
+  color:var(--muted);cursor:pointer;font-size:13px;font-weight:600;padding:0;
+}
+.days .day[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:#182440}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* ---------- home sections ---------- */
+.section{margin-bottom:22px}
+.section-head{display:flex;align-items:center;gap:8px;margin:0 2px 10px}
+.section-head h2{font-size:14px;font-weight:650;text-transform:uppercase;letter-spacing:.8px}
+.dot{width:8px;height:8px;border-radius:50%;flex:none}
+.dot.todo{background:var(--accent)}
+.dot.pending{background:var(--pending)}
+.dot.done{background:var(--done)}
+.count{margin-left:auto;font-size:13px;color:var(--muted)}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:12px}
+.tile{
+  position:relative;aspect-ratio:1/1;min-height:92px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  color:var(--text);cursor:pointer;padding:8px;box-shadow:var(--shadow);
+}
+.tile .ic{width:30px;height:30px;color:var(--accent)}
+.tile.pending .ic{color:var(--pending)}
+.tile.done .ic{color:var(--done)}
+.tile .label{font-size:11px;color:var(--muted);text-align:center;line-height:1.2}
+.badge{
+  position:absolute;right:6px;bottom:6px;min-width:22px;height:22px;padding:0 6px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:11px;font-size:12px;font-weight:650;
+  background:var(--surface-3);color:var(--text);border:1px solid var(--border);
+}
+.tile.todo .badge{background:var(--accent);color:var(--accent-ink);border-color:transparent}
+.tile.pending .badge{background:var(--pending);color:#2a1a00;border-color:transparent}
+.tile.done .badge{background:var(--done);color:#06281a;border-color:transparent}
+
+.empty{
+  border:1px dashed var(--border);border-radius:var(--radius);
+  padding:18px;text-align:center;color:var(--muted);font-size:14px;
+}
+
+/* ---------- task cards ---------- */
+.task-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow)}
+.task-card + .task-card{margin-top:12px}
+.task-head{display:flex;gap:12px;align-items:flex-start}
+.task-head .ic{color:var(--accent);margin-top:2px}
+.task-title{font-size:16px;font-weight:600;overflow-wrap:anywhere}
+.pill{
+  display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:999px;
+  font-size:11px;font-weight:600;background:var(--surface-3);color:var(--muted);
+}
+.pill.pending{background:#3a2a10;color:var(--pending)}
+.pill.done{background:#0f2f22;color:var(--done)}
+.pill.todo{background:#182440;color:var(--accent)}
+
+.note{background:var(--surface-2);border-radius:var(--radius-sm);padding:10px 12px;margin-top:10px}
+.note p{font-size:14px;color:var(--text);overflow-wrap:anywhere;white-space:pre-wrap}
+.check{
+  display:flex;align-items:center;gap:10px;min-height:var(--tap);cursor:pointer;
+  font-size:15px;overflow-wrap:anywhere;
+}
+.check input{
+  appearance:none;-webkit-appearance:none;
+  width:22px;height:22px;flex:none;border-radius:6px;
+  border:2px solid var(--muted);background:transparent;cursor:pointer;position:relative;
+}
+.check input:checked{background:var(--done);border-color:var(--done)}
+.check input:checked::after{
+  content:"";position:absolute;left:6px;top:2px;width:5px;height:10px;
+  border:solid #06281a;border-width:0 2px 2px 0;transform:rotate(45deg);
+}
+.check input:checked + span{color:var(--muted);text-decoration:line-through}
+
+/* ---------- tasks page ---------- */
+.group-head{display:flex;align-items:center;gap:8px;margin:18px 2px 8px;color:var(--muted);font-size:13px;font-weight:600}
+.group-head .ic{width:18px;height:18px}
+.list-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 10px 12px 14px}
+.list-row + .list-row{margin-top:8px}
+.list-row .row{gap:12px;align-items:flex-start}
+.list-row .btn.icon{margin-top:-2px}
+.list-row .ic{color:var(--accent)}
+.list-row.inactive{opacity:.55}
+
+/* ---------- icon picker ---------- */
+.picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(66px,1fr));gap:8px}
+.picker button{
+  min-height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);
+  color:var(--muted);cursor:pointer;padding:6px 2px;font-size:10px;
+}
+.picker button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:#182440}
+
+/* ---------- misc ---------- */
+.banner{border-radius:var(--radius-sm);padding:10px 12px;font-size:14px;margin-bottom:12px}
+.banner.error{background:#2a1519;border:1px solid #4a2830;color:#ffb3b3}
+.banner.info{background:#152233;border:1px solid #294066;color:#bcd3ff}
+.divider{height:1px;background:var(--border);margin:14px 0}
+.toast{
+  position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(84px + env(safe-area-inset-bottom));z-index:50;
+  background:var(--surface-3);border:1px solid var(--border);color:var(--text);
+  padding:10px 16px;border-radius:999px;font-size:14px;box-shadow:var(--shadow);
+  max-width:calc(100% - 32px);text-align:center;
+}
+.fab-space{height:8px}
+
+@media (min-width:640px){
+  main{padding-left:24px;padding-right:24px}
+  .tiles{grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}
+  .tabbar{gap:8px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <button class="btn icon ghost" id="backBtn" type="button" hidden aria-label="Back"></button>
+    <h1 id="pageTitle">Home</h1>
+    <div id="topAction"></div>
+  </header>
+  <main id="main"></main>
+  <nav class="tabbar" id="tabbar" aria-label="Main"></nav>
+</div>
+
+<script>
+"use strict";
+(function(){
+
+/* ============================================================
+   1. Icons — hard-coded, static SVG strings (the only innerHTML
+   the app ever performs; see CLAUDE.md §9).
+   Shapes are Lucide-style: 24x24, stroke, currentColor.
+   ============================================================ */
+function svg(paths){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '+
+         'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+paths+'</svg>';
+}
+
+var ICONS = {
+  cat: svg('<path d="M12 5c.67 0 1.35.09 2 .26 1.78-2 5.03-2.84 6.42-2.26 1.4.58-.42 7-.42 7 .57 1.07 1 2.24 1 3.44C21 17.9 16.97 21 12 21s-9-3.1-9-7.56c0-1.25.43-2.37 1-3.44 0 0-1.82-6.42-.42-7 1.39-.58 4.64.26 6.42 2.26C11.65 5.09 12.33 5 12 5Z"/><path d="M8 14v.5"/><path d="M16 14v.5"/><path d="M11.25 16.25h1.5L12 17l-.75-.75Z"/>'),
+  house: svg('<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 22V12h6v10"/>'),
+  work: svg('<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>'),
+  gym: svg('<path d="m6.5 6.5 11 11"/><path d="m21 21-1-1"/><path d="m3 3 1 1"/><path d="m18 22 4-4"/><path d="m2 6 4-4"/><path d="m3 10 7-7"/><path d="m14 21 7-7"/>'),
+  nature: svg('<path d="M10 10v.2A3 3 0 0 1 8.9 16H5a3 3 0 0 1-1-5.8V10a3 3 0 0 1 6 0Z"/><path d="M7 16v6"/><path d="M13 19v3"/><path d="M12 19h8.3a1 1 0 0 0 .7-1.7L18 14h.3a1 1 0 0 0 .7-1.7L16 9h.2a1 1 0 0 0 .8-1.7L13 3l-1.4 1.5"/>'),
+  food: svg('<path d="M3 2v7a3 3 0 0 0 3 3 3 3 0 0 0 3-3V2"/><path d="M6 12v10"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>'),
+  shop: svg('<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h2.2a1 1 0 0 1 1 .8L6 7m0 0 1.6 7.6a2 2 0 0 0 2 1.6h8a2 2 0 0 0 2-1.6L21 7Z"/>'),
+  clean: svg('<path d="m12 3 1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3Z"/><path d="M5 3v4"/><path d="M3 5h4"/><path d="M19 17v4"/><path d="M17 19h4"/>'),
+  task: svg('<path d="M21 10.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/><path d="m9 11 3 3L22 4"/>'),
+  document: svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>'),
+  money: svg('<path d="M19 7V5a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v3h-3a2 2 0 0 0 0 4h3a1 1 0 0 1-1 1"/><path d="M3 6v13a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4"/>'),
+  battery: svg('<path d="M15 7h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-2"/><path d="M7 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="m11 6-3 6h4l-3 6"/><path d="M22 11v2"/>'),
+
+  /* UI-only icons */
+  ui_home: svg('<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 22V12h6v10"/>'),
+  ui_list: svg('<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/>'),
+  ui_settings: svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6h.09A1.65 1.65 0 0 0 10 3.09V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>'),
+  ui_back: svg('<path d="m15 18-6-6 6-6"/>'),
+  ui_plus: svg('<path d="M12 5v14"/><path d="M5 12h14"/>'),
+  ui_edit: svg('<path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>'),
+  ui_trash: svg('<path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6"/><path d="M14 11v6"/>'),
+  ui_check: svg('<path d="M20 6 9 17l-5-5"/>'),
+  ui_undo: svg('<path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 8"/>'),
+  ui_download: svg('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>'),
+  ui_upload: svg('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>'),
+  ui_x: svg('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>')
+};
+
+/* The task icon set offered in the picker (CLAUDE.md §5). */
+var ICON_SET = [
+  { key:'cat',      label:'Pets' },
+  { key:'house',    label:'Home' },
+  { key:'work',     label:'Work' },
+  { key:'gym',      label:'Gym' },
+  { key:'nature',   label:'Nature' },
+  { key:'food',     label:'Food' },
+  { key:'shop',     label:'Shopping' },
+  { key:'clean',    label:'Cleaning' },
+  { key:'task',     label:'Task' },
+  { key:'document', label:'Papers' },
+  { key:'money',    label:'Money' },
+  { key:'battery',  label:'Charging' }
+];
+var ICON_LABELS = {};
+ICON_SET.forEach(function(i){ ICON_LABELS[i.key] = i.label; });
+
+function iconKey(k){ return Object.prototype.hasOwnProperty.call(ICON_LABELS, k) ? k : 'task'; }
+
+/* ============================================================
+   2. DOM helpers — never innerHTML with user data.
+   ============================================================ */
+function el(tag, opts, kids){
+  var n = document.createElement(tag);
+  opts = opts || {};
+  if(opts.cls) n.className = opts.cls;
+  if(opts.text != null) n.textContent = String(opts.text);
+  if(opts.attrs) for(var a in opts.attrs){
+    if(opts.attrs[a] === false || opts.attrs[a] == null) continue;
+    n.setAttribute(a, opts.attrs[a]);
+  }
+  if(opts.props) for(var p in opts.props) n[p] = opts.props[p];
+  if(opts.on) for(var e in opts.on) n.addEventListener(e, opts.on[e]);
+  if(kids){
+    if(!Array.isArray(kids)) kids = [kids];
+    for(var i=0;i<kids.length;i++) if(kids[i]) n.appendChild(kids[i]);
+  }
+  return n;
+}
+function icon(key, cls){
+  var s = el('span', { cls: 'ic' + (cls ? ' ' + cls : '') });
+  s.innerHTML = ICONS[key] || ICONS.task;   // static, app-owned strings only
+  return s;
+}
+function clear(node){ while(node.firstChild) node.removeChild(node.firstChild); }
+
+var toastTimer = null;
+function toast(msg){
+  var old = document.querySelector('.toast');
+  if(old) old.remove();
+  var t = el('div', { cls:'toast', text: msg, attrs:{ role:'status' } });
+  document.body.appendChild(t);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ if(t.parentNode) t.remove(); }, 2600);
+}
+
+/* ============================================================
+   3. Calendar dates — plain "YYYY-MM-DD" strings only.
+   All arithmetic goes through a proleptic-Gregorian day count so
+   there is never a Date object with a time-of-day involved
+   (CLAUDE.md §4).
+   ============================================================ */
+var DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+var MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var WEEKDAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+var WEEKDAYS_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+var WEEKDAYS_MIN = ['S','M','T','W','T','F','S'];
+var ORDINALS = { '1':'1st', '2':'2nd', '3':'3rd', '4':'4th', 'last':'last' };
+
+function pad2(n){ return (n < 10 ? '0' : '') + n; }
+function ymd(y,m,d){ return y + '-' + pad2(m) + '-' + pad2(d); }
+function parts(s){
+  return { y:+s.slice(0,4), m:+s.slice(5,7), d:+s.slice(8,10) };
+}
+function isLeap(y){ return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0; }
+function daysInMonth(y,m){
+  return [31, isLeap(y) ? 29 : 28, 31,30,31,30,31,31,30,31,30,31][m-1];
+}
+/* days_from_civil / civil_from_days (Howard Hinnant's algorithms) */
+function toDays(s){
+  var p = parts(s), y = p.y, m = p.m, d = p.d;
+  y -= m <= 2 ? 1 : 0;
+  var era = Math.floor(y / 400);
+  var yoe = y - era * 400;
+  var doy = Math.floor((153 * (m + (m > 2 ? -3 : 9)) + 2) / 5) + d - 1;
+  var doe = yoe * 365 + Math.floor(yoe/4) - Math.floor(yoe/100) + doy;
+  return era * 146097 + doe - 719468;
+}
+function fromDays(z){
+  z += 719468;
+  var era = Math.floor(z / 146097);
+  var doe = z - era * 146097;
+  var yoe = Math.floor((doe - Math.floor(doe/1460) + Math.floor(doe/36524) - Math.floor(doe/146096)) / 365);
+  var y = yoe + era * 400;
+  var doy = doe - (365 * yoe + Math.floor(yoe/4) - Math.floor(yoe/100));
+  var mp = Math.floor((5 * doy + 2) / 153);
+  var d = doy - Math.floor((153 * mp + 2) / 5) + 1;
+  var m = mp + (mp < 10 ? 3 : -9);
+  return ymd(m <= 2 ? y + 1 : y, m, d);
+}
+function addDays(s, n){ return fromDays(toDays(s) + n); }
+function dayOfWeek(s){ return ((toDays(s) + 4) % 7 + 7) % 7; }   // 0 = Sunday
+function isValidDate(s){
+  return typeof s === 'string' && DATE_RE.test(s) && fromDays(toDays(s)) === s;
+}
+function today(){
+  var d = new Date();
+  return ymd(d.getFullYear(), d.getMonth() + 1, d.getDate());
+}
+function fmtDate(s){
+  if(!isValidDate(s)) return String(s);
+  var p = parts(s);
+  return MONTHS_SHORT[p.m-1] + ' ' + p.d + ', ' + p.y;
+}
+function daysBetween(a,b){ return toDays(b) - toDays(a); }
+function relativeLate(due, ref){
+  var n = daysBetween(due, ref);
+  if(n <= 0) return '';
+  if(n === 1) return '1 day late';
+  return n + ' days late';
+}
+/* The Sunday on/before `s` — the canonical start of `s`'s calendar week
+   (CLAUDE.md §4.1, weekly + daysOfWeek). */
+function weekStart(s){ return addDays(s, -dayOfWeek(s)); }
+
+/* Sorted, de-duplicated weekday list for a `weekly` recurrence, or null when
+   the task doesn't use §4.0 — null means "the single weekday implied by
+   startDate", i.e. the original pre-daysOfWeek behavior. */
+function weekDaysList(r){
+  if(!r || r.type !== 'weekly' || !Array.isArray(r.daysOfWeek)) return null;
+  var seen = Object.create(null), out = [];
+  for(var i = 0; i < r.daysOfWeek.length; i++){
+    var d = Math.floor(Number(r.daysOfWeek[i]));
+    if(!isFinite(d) || d < 0 || d > 6 || seen[d]) continue;
+    seen[d] = true; out.push(d);
+  }
+  out.sort(function(a, b){ return a - b; });
+  return out.length ? out : null;
+}
+
+/* Nth (or last) weekday of a month, as a date string. */
+function nthWeekday(y, m, weekday, ordinal){
+  var dim = daysInMonth(y, m);
+  if(ordinal === 'last'){
+    var lastDow = dayOfWeek(ymd(y, m, dim));
+    return ymd(y, m, dim - ((lastDow - weekday + 7) % 7));
+  }
+  var firstDow = dayOfWeek(ymd(y, m, 1));
+  var day = 1 + ((weekday - firstDow + 7) % 7) + (Number(ordinal) - 1) * 7;
+  if(day > dim) day -= 7;   // guard: shouldn't happen for ordinals 1..4
+  return ymd(y, m, day);
+}
+
+/* ============================================================
+   4. Recurrence engine — lastDueDate (CLAUDE.md §4.1)
+   Returns the most recent scheduled occurrence <= today, or null.
+   ============================================================ */
+function occurrenceInMonth(y, m, r){
+  if(r.mode === 'weekdayOfMonth'){
+    return nthWeekday(y, m, Number(r.weekday) || 0, r.weekdayOrdinal == null ? '1' : String(r.weekdayOrdinal));
+  }
+  var d = Math.min(Number(r.dayOfMonth) || 1, daysInMonth(y, m));
+  return ymd(y, m, d);
+}
+
+function lastDueDate(task, ref){
+  var r = task && task.recurrence;
+  if(!r) return null;
+  var start = isValidDate(r.startDate) ? r.startDate
+            : (isValidDate(task.createdAt) ? task.createdAt : null);
+  var interval = Math.max(1, Math.floor(Number(r.interval) || 1));
+
+  if(r.type === 'once'){
+    return isValidDate(r.date) && r.date <= ref ? r.date : null;
+  }
+  if(!start || ref < start) return null;
+
+  /* weekly + daysOfWeek (CLAUDE.md §4.0): several trigger days inside every
+     active week, still resolving to a single most-recent due date. */
+  var dows = weekDaysList(r);
+  if(dows){
+    var anchor = weekStart(start);
+    var wi = daysBetween(anchor, weekStart(ref)) / 7;   // whole weeks, >= 0
+    wi -= wi % interval;                                // back to an active week
+    while(wi >= 0){
+      var ws = addDays(anchor, wi * 7);
+      for(var di = dows.length - 1; di >= 0; di--){     // latest day first
+        var cand = addDays(ws, dows[di]);
+        if(cand <= ref && cand >= start) return cand;   // never before startDate
+      }
+      wi -= interval;
+    }
+    return null;
+  }
+
+  if(r.type === 'daily' || r.type === 'weekly'){
+    var step = r.type === 'weekly' ? 7 * interval : interval;
+    var elapsed = daysBetween(start, ref);
+    return addDays(start, Math.floor(elapsed / step) * step);
+  }
+
+  if(r.type === 'monthly'){
+    var s = parts(start), t = parts(ref);
+    var k = Math.floor((((t.y - s.y) * 12) + (t.m - s.m)) / interval);
+    while(k >= 0){
+      var idx = (s.y * 12 + (s.m - 1)) + k * interval;
+      var cand = occurrenceInMonth(Math.floor(idx / 12), (idx % 12) + 1, r);
+      if(cand < start) return null;          // walking back can only get earlier
+      if(cand <= ref) return cand;
+      k--;
+    }
+    return null;
+  }
+
+  if(r.type === 'yearly'){
+    var sy = parts(start).y, ty = parts(ref).y;
+    var mo = Math.min(12, Math.max(1, Number(r.month) || 1));
+    var kk = Math.floor((ty - sy) / interval);
+    while(kk >= 0){
+      var year = sy + kk * interval;
+      var day = Math.min(Number(r.day) || 1, daysInMonth(year, mo));
+      var c = ymd(year, mo, day);
+      if(c < start) return null;
+      if(c <= ref) return c;
+      kk--;
+    }
+    return null;
+  }
+  return null;
+}
+
+/* The occurrence that follows `due`, or null when there is none
+   (a `once` task has no future occurrence — see CLAUDE.md §7.2). */
+function nextDueDate(task, due){
+  var r = task.recurrence;
+  if(!r || !due || r.type === 'once') return null;
+  var interval = Math.max(1, Math.floor(Number(r.interval) || 1));
+  if(r.type === 'daily') return addDays(due, interval);
+  if(r.type === 'weekly'){
+    var dows = weekDaysList(r);
+    if(!dows) return addDays(due, 7 * interval);
+    /* `due` always sits in an active week, so the next occurrence is either a
+       later trigger day in that same week or the first one `interval` weeks on. */
+    var ws = weekStart(due), dow = dayOfWeek(due);
+    for(var i = 0; i < dows.length; i++) if(dows[i] > dow) return addDays(ws, dows[i]);
+    return addDays(ws, interval * 7 + dows[0]);
+  }
+  if(r.type === 'monthly'){
+    var p = parts(due);
+    var idx = p.y * 12 + (p.m - 1) + interval;
+    return occurrenceInMonth(Math.floor(idx / 12), (idx % 12) + 1, r);
+  }
+  if(r.type === 'yearly'){
+    var year = parts(due).y + interval;
+    var mo = Math.min(12, Math.max(1, Number(r.month) || 1));
+    return ymd(year, mo, Math.min(Number(r.day) || 1, daysInMonth(year, mo)));
+  }
+  return null;
+}
+
+function recurrenceLabel(r){
+  if(!r) return '';
+  var n = Math.max(1, Math.floor(Number(r.interval) || 1));
+  var every = n === 1 ? '' : 'every ' + n + ' ';
+  switch(r.type){
+    case 'once':
+      return 'Once on ' + fmtDate(r.date);
+    case 'daily':
+      return n === 1 ? 'Every day' : 'Every ' + n + ' days';
+    case 'weekly':
+      var dows = weekDaysList(r);
+      var base = n === 1 ? 'Every week' : 'Every ' + n + ' weeks';
+      if(!dows) return base;
+      return base + ' on ' + dows.map(function(i){ return WEEKDAYS_SHORT[i]; }).join(', ');
+    case 'monthly':
+      var when = r.mode === 'weekdayOfMonth'
+        ? 'on the ' + (ORDINALS[String(r.weekdayOrdinal)] || '1st') + ' ' + WEEKDAYS[Number(r.weekday) || 0]
+        : 'on day ' + (Number(r.dayOfMonth) || 1);
+      return (n === 1 ? 'Every month ' : 'Every ' + n + ' months ') + when;
+    case 'yearly':
+      return (n === 1 ? 'Every year ' : 'Every ' + n + ' years ') +
+             'on ' + MONTHS_SHORT[(Number(r.month) || 1) - 1] + ' ' + (Number(r.day) || 1);
+  }
+  return every;
+}
+
+/* ============================================================
+   5. Storage
+   ============================================================ */
+var KEY = 'ptm_data';
+var LIMITS = { tasks:5000, notes:100, items:200, completions:5000, str:2000, name:200 };
+
+function emptyData(){ return { version:1, settings:{}, tasks:[] }; }
+
+var state = emptyData();
+var storageBroken = false;
+
+function load(){
+  var raw;
+  try { raw = localStorage.getItem(KEY); }
+  catch(e){ storageBroken = true; return emptyData(); }
+  if(!raw) return emptyData();
+  try {
+    var parsed = JSON.parse(raw);
+    var v = validateData(parsed);
+    if(!v.ok){ console.warn('Stored data rejected:', v.error); return emptyData(); }
+    return v.data;
+  } catch(e){ return emptyData(); }
+}
+function save(){
+  try { localStorage.setItem(KEY, JSON.stringify(state)); }
+  catch(e){ storageBroken = true; toast('Could not save — storage unavailable'); }
+}
+
+/* ---------- strict validation (CLAUDE.md §9) ---------- */
+function isPlainObject(o){ return o && typeof o === 'object' && !Array.isArray(o); }
+function str(v, max){ return typeof v === 'string' && v.length <= max; }
+
+function validateRecurrence(r, path){
+  if(!isPlainObject(r)) return path + ': recurrence must be an object';
+  var types = ['once','daily','weekly','monthly','yearly'];
+  if(types.indexOf(r.type) === -1) return path + ': unknown recurrence type';
+  if(r.interval != null){
+    if(typeof r.interval !== 'number' || !isFinite(r.interval) || r.interval < 1 || r.interval > 999 || r.interval % 1 !== 0)
+      return path + ': interval must be an integer 1..999';
+  }
+  if(r.startDate != null && !isValidDate(r.startDate)) return path + ': invalid startDate';
+  if(r.daysOfWeek != null){                                    // CLAUDE.md §4.0
+    if(r.type !== 'weekly') return path + ': daysOfWeek only applies to weekly recurrence';
+    if(!Array.isArray(r.daysOfWeek) || r.daysOfWeek.length > 7)
+      return path + ': daysOfWeek must be an array of at most 7 weekdays';
+    var seenDow = Object.create(null);
+    for(var di = 0; di < r.daysOfWeek.length; di++){
+      var dv = r.daysOfWeek[di];
+      if(typeof dv !== 'number' || !isFinite(dv) || dv < 0 || dv > 6 || dv % 1 !== 0)
+        return path + ': daysOfWeek entries must be integers 0..6';
+      if(seenDow[dv]) return path + ': duplicate weekday in daysOfWeek';
+      seenDow[dv] = true;
+    }
+  }
+  if(r.type === 'once'){
+    if(!isValidDate(r.date)) return path + ': "once" needs a valid date';
+  }
+  if(r.type === 'monthly'){
+    if(r.mode !== 'dayOfMonth' && r.mode !== 'weekdayOfMonth') return path + ': invalid monthly mode';
+    if(r.mode === 'dayOfMonth'){
+      if(typeof r.dayOfMonth !== 'number' || r.dayOfMonth < 1 || r.dayOfMonth > 31 || r.dayOfMonth % 1 !== 0)
+        return path + ': dayOfMonth must be 1..31';
+    } else {
+      if(['1','2','3','4','last'].indexOf(String(r.weekdayOrdinal)) === -1) return path + ': invalid weekdayOrdinal';
+      if(typeof r.weekday !== 'number' || r.weekday < 0 || r.weekday > 6 || r.weekday % 1 !== 0)
+        return path + ': weekday must be 0..6';
+    }
+  }
+  if(r.type === 'yearly'){
+    if(typeof r.month !== 'number' || r.month < 1 || r.month > 12 || r.month % 1 !== 0) return path + ': month must be 1..12';
+    if(typeof r.day !== 'number' || r.day < 1 || r.day > 31 || r.day % 1 !== 0) return path + ': day must be 1..31';
+  }
+  return null;
+}
+
+function validateTask(t, i){
+  var p = 'tasks[' + i + ']';
+  if(!isPlainObject(t)) return p + ' is not an object';
+  if(!str(t.id, 100) || !t.id) return p + ': missing/invalid id';
+  if(!str(t.icon, 40) || !t.icon) return p + ': missing/invalid icon';
+  if(!str(t.name, LIMITS.name) || !t.name.trim()) return p + ': missing/invalid name';
+  if(!Array.isArray(t.notes) || t.notes.length > LIMITS.notes) return p + ': notes must be an array (max ' + LIMITS.notes + ')';
+  for(var n = 0; n < t.notes.length; n++){
+    var note = t.notes[n], np = p + '.notes[' + n + ']';
+    if(!isPlainObject(note)) return np + ' is not an object';
+    if(note.type === 'text'){
+      if(!str(note.text, LIMITS.str)) return np + ': text note needs a string "text"';
+    } else if(note.type === 'checklist'){
+      if(!Array.isArray(note.items) || note.items.length > LIMITS.items) return np + ': items must be an array (max ' + LIMITS.items + ')';
+      for(var k = 0; k < note.items.length; k++){
+        var it = note.items[k];
+        if(!isPlainObject(it) || !str(it.text, LIMITS.str)) return np + '.items[' + k + ']: invalid text';
+        if(it.checked != null && typeof it.checked !== 'boolean') return np + '.items[' + k + ']: checked must be boolean';
+      }
+    } else return np + ': unknown note type';
+  }
+  var re = validateRecurrence(t.recurrence, p);
+  if(re) return re;
+  if(!isValidDate(t.createdAt)) return p + ': invalid createdAt';
+  if(t.completions != null){
+    if(!Array.isArray(t.completions) || t.completions.length > LIMITS.completions) return p + ': completions must be an array';
+    for(var c = 0; c < t.completions.length; c++){
+      var comp = t.completions[c];
+      if(!isPlainObject(comp) || !isValidDate(comp.dueDate) || !isValidDate(comp.completedOn))
+        return p + '.completions[' + c + ']: invalid entry';
+    }
+  }
+  if(t.checklistState != null){
+    var cs = t.checklistState;
+    if(!isPlainObject(cs)) return p + ': checklistState must be an object';
+    if(cs.lastResetDueDate != null && !isValidDate(cs.lastResetDueDate)) return p + ': invalid lastResetDueDate';
+    if(cs.checkedItemIds != null){
+      if(!Array.isArray(cs.checkedItemIds) || cs.checkedItemIds.length > LIMITS.items * LIMITS.notes)
+        return p + ': checkedItemIds must be an array';
+      for(var q = 0; q < cs.checkedItemIds.length; q++)
+        if(!str(cs.checkedItemIds[q], 80)) return p + '.checkedItemIds[' + q + ']: invalid id';
+    }
+  }
+  if(t.active != null && typeof t.active !== 'boolean') return p + ': active must be boolean';
+  return null;
+}
+
+/* Returns { ok:true, data } or { ok:false, error }. Normalises the
+   bookkeeping fields (completions/checklistState/active) when absent. */
+function validateData(raw){
+  if(!isPlainObject(raw)) return { ok:false, error:'Root value is not an object' };
+  if(raw.version !== 1) return { ok:false, error:'Unsupported version (expected 1)' };
+  if(raw.settings != null && !isPlainObject(raw.settings)) return { ok:false, error:'settings must be an object' };
+  if(!Array.isArray(raw.tasks)) return { ok:false, error:'tasks must be an array' };
+  if(raw.tasks.length > LIMITS.tasks) return { ok:false, error:'Too many tasks (max ' + LIMITS.tasks + ')' };
+
+  var seen = Object.create(null), out = [];   // null-proto: task ids are untrusted keys
+  for(var i = 0; i < raw.tasks.length; i++){
+    var err = validateTask(raw.tasks[i], i);
+    if(err) return { ok:false, error: err };
+    var t = raw.tasks[i];
+    if(seen[t.id]) return { ok:false, error:'Duplicate task id: ' + t.id };
+    seen[t.id] = true;
+    out.push(normaliseTask(t));
+  }
+  return { ok:true, data:{ version:1, settings: raw.settings || {}, tasks: out } };
+}
+
+function normaliseTask(t){
+  var notes = t.notes.map(function(n){
+    if(n.type === 'text') return { type:'text', text:n.text };
+    return { type:'checklist', items: n.items.map(function(it){
+      return { text: it.text, checked: it.checked === true };
+    })};
+  });
+  var cs = isPlainObject(t.checklistState) ? t.checklistState : {};
+  return {
+    id: t.id,
+    icon: iconKey(t.icon),
+    name: t.name,
+    notes: notes,
+    recurrence: normaliseRecurrence(t.recurrence),
+    createdAt: t.createdAt,
+    completions: Array.isArray(t.completions)
+      ? t.completions.map(function(c){ return { dueDate:c.dueDate, completedOn:c.completedOn }; })
+      : [],
+    checklistState: {
+      lastResetDueDate: isValidDate(cs.lastResetDueDate) ? cs.lastResetDueDate : null,
+      checkedItemIds: Array.isArray(cs.checkedItemIds) ? cs.checkedItemIds.slice() : []
+    },
+    active: t.active !== false
+  };
+}
+
+/* Keep only the fields that matter for the chosen recurrence type. */
+function normaliseRecurrence(r){
+  var out = { type:r.type, interval: Math.max(1, Math.floor(Number(r.interval) || 1)) };
+  if(r.type === 'once'){ return { type:'once', date:r.date }; }
+  out.startDate = r.startDate;
+  if(r.type === 'weekly'){
+    /* Dropped when absent or empty, which is exactly the legacy
+       single-weekday-from-startDate behavior (CLAUDE.md §4.0). */
+    var dows = weekDaysList(r);
+    if(dows) out.daysOfWeek = dows;
+  }
+  if(r.type === 'monthly'){
+    out.mode = r.mode;
+    if(r.mode === 'weekdayOfMonth'){
+      out.weekdayOrdinal = String(r.weekdayOrdinal);
+      out.weekday = Number(r.weekday);
+    } else {
+      out.dayOfMonth = Number(r.dayOfMonth);
+    }
+  }
+  if(r.type === 'yearly'){ out.month = Number(r.month); out.day = Number(r.day); }
+  return out;
+}
+
+/* ============================================================
+   6. Task state helpers
+   ============================================================ */
+function checklists(task){
+  return task.notes.filter(function(n){ return n.type === 'checklist' && n.items.length; });
+}
+/* checkedItemIds is a derived mirror of item.checked, kept in the
+   documented "noteIndex:itemIndex" shape for export fidelity. */
+function syncCheckedIds(task){
+  var ids = [];
+  task.notes.forEach(function(n, ni){
+    if(n.type !== 'checklist') return;
+    n.items.forEach(function(it, ii){ if(it.checked) ids.push(ni + ':' + ii); });
+  });
+  task.checklistState.checkedItemIds = ids;
+}
+function setAllChecked(task, value){
+  task.notes.forEach(function(n){
+    if(n.type === 'checklist') n.items.forEach(function(it){ it.checked = value; });
+  });
+  syncCheckedIds(task);
+}
+function allChecked(task){
+  var lists = checklists(task);
+  if(!lists.length) return false;
+  return lists.every(function(n){ return n.items.every(function(it){ return it.checked; }); });
+}
+function completionFor(task, due){
+  if(!due) return null;
+  for(var i = 0; i < task.completions.length; i++)
+    if(task.completions[i].dueDate === due) return task.completions[i];
+  return null;
+}
+
+/* CLAUDE.md §6.4 — reset checklist state when the cycle rolls over. */
+function refreshCycles(ref){
+  var changed = false;
+  state.tasks.forEach(function(t){
+    var due = lastDueDate(t, ref);
+    if(t.checklistState.lastResetDueDate !== due){
+      setAllChecked(t, false);
+      t.checklistState.lastResetDueDate = due;
+      changed = true;
+    }
+  });
+  if(changed) save();
+}
+
+function markDone(task, due, ref){
+  if(!due) return;
+  if(!completionFor(task, due)) task.completions.push({ dueDate: due, completedOn: ref });
+  setAllChecked(task, true);
+  task.checklistState.lastResetDueDate = due;
+  save();
+}
+/* Undo removes only today's entry for this cycle (CLAUDE.md §6.3).
+   Items are unchecked too, otherwise the task returns to To do with a
+   fully ticked checklist and no way to re-trigger auto-complete. */
+function undoDone(task, due, ref){
+  task.completions = task.completions.filter(function(c){
+    return !(c.dueDate === due && c.completedOn === ref);
+  });
+  setAllChecked(task, false);
+  save();
+}
+/* Reactivate (CLAUDE.md §7.2) — drops the completion entry that is
+   keeping the current cycle satisfied, whenever it was recorded, so the
+   task matches §6.1's "no entry found" case again. Nothing else about
+   the task changes, and nothing is ever deleted from the task list. */
+function reactivate(task, due){
+  task.completions = task.completions.filter(function(c){ return c.dueDate !== due; });
+  setAllChecked(task, false);
+  task.checklistState.lastResetDueDate = due;
+  save();
+}
+
+/* Current visibility state of a task, for the Tasks page (§7.2). */
+function taskStatus(task, ref){
+  var due = lastDueDate(task, ref);
+  if(!task.active) return { key:'inactive', due:due, label:'Inactive' };
+  if(!due){
+    var r = task.recurrence;
+    var starts = r && (r.type === 'once' ? r.date : r.startDate);
+    return { key:'future', due:null, label: isValidDate(starts) ? 'Starts ' + fmtDate(starts) : 'Not started' };
+  }
+  var comp = completionFor(task, due);
+  if(!comp) return due === ref
+    ? { key:'todo', due:due, label:'Due today' }
+    : { key:'pending', due:due, label:(relativeLate(due, ref) || 'Overdue') };
+  if(comp.completedOn === ref) return { key:'done', due:due, label:'Done today' };
+  var next = nextDueDate(task, due);
+  return {
+    key:'dormant', due:due,
+    label: next ? 'Dormant until ' + fmtDate(next) : 'Dormant — no further occurrence'
+  };
+}
+
+/* Home buckets (CLAUDE.md §6.1) */
+function buckets(ref){
+  var out = { todo:[], pending:[], done:[] };
+  state.tasks.forEach(function(t){
+    if(!t.active) return;
+    var due = lastDueDate(t, ref);
+    if(!due) return;
+    var comp = completionFor(t, due);
+    if(!comp){
+      if(due === ref) out.todo.push({ task:t, due:due });
+      else if(due < ref) out.pending.push({ task:t, due:due });
+    } else if(comp.completedOn === ref){
+      out.done.push({ task:t, due:due });
+    }
+  });
+  return out;
+}
+function groupByIcon(entries){
+  var map = Object.create(null), order = [];
+  entries.forEach(function(e){
+    var k = iconKey(e.task.icon);
+    if(!map[k]){ map[k] = []; order.push(k); }
+    map[k].push(e);
+  });
+  order.sort(function(a,b){ return map[b].length - map[a].length || a.localeCompare(b); });
+  return order.map(function(k){ return { icon:k, entries:map[k] }; });
+}
+
+/* ============================================================
+   7. View state
+   ============================================================ */
+var view = {
+  page: 'home',          // home | tasks | settings
+  section: null,         // when set, Home shows the (section, icon) list
+  icon: null,
+  editorId: null,        // task id being edited, or 'new'
+  draft: null,
+  formError: null,
+  search: '',
+  pendingImport: null    // { data, count } awaiting merge/replace choice
+};
+var SECTION_META = {
+  todo:    { title:'To do',   cls:'todo' },
+  pending: { title:'Pending', cls:'pending' },
+  done:    { title:'Done',    cls:'done' }
+};
+
+var main = document.getElementById('main');
+var pageTitle = document.getElementById('pageTitle');
+var backBtn = document.getElementById('backBtn');
+var topAction = document.getElementById('topAction');
+var tabbar = document.getElementById('tabbar');
+
+backBtn.appendChild(icon('ui_back'));
+backBtn.addEventListener('click', function(){
+  if(view.editorId){ view.editorId = null; view.draft = null; view.formError = null; }
+  else { view.section = null; view.icon = null; }
+  render();
+});
+
+[['home','Home','ui_home'], ['tasks','Tasks','ui_list'], ['settings','Settings','ui_settings']]
+  .forEach(function(t){
+    var b = el('button', { attrs:{ type:'button' }, on:{ click: function(){ go(t[0]); } } },
+      [ icon(t[2]), el('span', { text:t[1] }) ]);
+    b.dataset.page = t[0];
+    tabbar.appendChild(b);
+  });
+
+function go(page){
+  view.page = page;
+  view.section = null; view.icon = null;
+  view.editorId = null; view.draft = null; view.formError = null;
+  view.pendingImport = null;
+  window.scrollTo(0, 0);
+  render();
+}
+
+/* ============================================================
+   8. Render
+   ============================================================ */
+function render(){
+  var ref = today();
+  clear(main);
+  clear(topAction);
+  backBtn.hidden = true;
+
+  Array.prototype.forEach.call(tabbar.children, function(b){
+    if(b.dataset.page === view.page) b.setAttribute('aria-current', 'page');
+    else b.removeAttribute('aria-current');
+  });
+
+  if(storageBroken){
+    main.appendChild(el('div', { cls:'banner error',
+      text:'localStorage is unavailable in this context — changes will not be saved.' }));
+  }
+
+  if(view.page === 'home') renderHome(ref);
+  else if(view.page === 'tasks') renderTasks(ref);
+  else renderSettings(ref);
+}
+
+function setTitle(title, sub){
+  clear(pageTitle);
+  pageTitle.appendChild(document.createTextNode(title));
+  if(sub) pageTitle.appendChild(el('span', { cls:'sub', text:sub }));
+}
+
+/* ---------- Home ---------- */
+function renderHome(ref){
+  if(view.section){ renderHomeList(ref); return; }
+  setTitle('Home', fmtDate(ref));
+
+  var b = buckets(ref);
+  var any = b.todo.length + b.pending.length + b.done.length;
+
+  ['todo','pending','done'].forEach(function(key){
+    main.appendChild(sectionBlock(key, b[key]));
+  });
+
+  if(!any){
+    var hint = el('div', { cls:'empty' }, [
+      el('p', { text: state.tasks.length
+        ? 'Nothing scheduled for today. Everything is quiet.'
+        : 'No tasks yet. Create one on the Tasks page, or import your backup from Settings.' })
+    ]);
+    clear(main);
+    if(storageBroken) main.appendChild(el('div', { cls:'banner error',
+      text:'localStorage is unavailable in this context — changes will not be saved.' }));
+    main.appendChild(hint);
+  }
+}
+
+function sectionBlock(key, entries){
+  var meta = SECTION_META[key];
+  var sec = el('section', { cls:'section' });
+  sec.appendChild(el('div', { cls:'section-head' }, [
+    el('span', { cls:'dot ' + meta.cls }),
+    el('h2', { text: meta.title }),
+    el('span', { cls:'count', text: entries.length ? entries.length + (entries.length === 1 ? ' task' : ' tasks') : '' })
+  ]));
+
+  if(!entries.length){
+    sec.appendChild(el('div', { cls:'empty', text: key === 'pending' ? 'Nothing overdue.' :
+      key === 'done' ? 'Nothing completed today yet.' : 'Nothing due today.' }));
+    return sec;
+  }
+
+  var tiles = el('div', { cls:'tiles' });
+  groupByIcon(entries).forEach(function(g){
+    var t = el('button', {
+      cls:'tile ' + meta.cls,
+      attrs:{ type:'button', 'aria-label': meta.title + ': ' + (ICON_LABELS[g.icon] || g.icon) + ', ' + g.entries.length + ' tasks' },
+      on:{ click: function(){ view.section = key; view.icon = g.icon; window.scrollTo(0,0); render(); } }
+    }, [
+      icon(g.icon),
+      el('span', { cls:'label', text: ICON_LABELS[g.icon] || g.icon }),
+      el('span', { cls:'badge', text: g.entries.length })
+    ]);
+    tiles.appendChild(t);
+  });
+  sec.appendChild(tiles);
+  return sec;
+}
+
+function renderHomeList(ref){
+  var meta = SECTION_META[view.section];
+  setTitle(meta.title, ICON_LABELS[view.icon] || view.icon);
+  backBtn.hidden = false;
+
+  var entries = buckets(ref)[view.section].filter(function(e){ return iconKey(e.task.icon) === view.icon; });
+
+  if(!entries.length){
+    main.appendChild(el('div', { cls:'empty', text:'Nothing left here.' }));
+    main.appendChild(el('div', { cls:'fab-space' }));
+    main.appendChild(el('button', { cls:'btn block', attrs:{ type:'button' },
+      on:{ click:function(){ view.section = null; view.icon = null; render(); } } },
+      [ icon('ui_back'), el('span', { text:'Back to Home' }) ]));
+    return;
+  }
+
+  entries.forEach(function(e){ main.appendChild(taskCard(e, ref)); });
+
+  main.appendChild(el('div', { cls:'fab-space' }));
+  main.appendChild(el('button', { cls:'btn block', attrs:{ type:'button' },
+    on:{ click:function(){ view.section = null; view.icon = null; window.scrollTo(0,0); render(); } } },
+    [ icon('ui_back'), el('span', { text:'Back to Home' }) ]));
+}
+
+function taskCard(entry, ref){
+  var task = entry.task, due = entry.due;
+  var isDone = view.section === 'done';
+  var card = el('div', { cls:'task-card' });
+
+  var pill;
+  if(view.section === 'pending') pill = el('span', { cls:'pill pending', text: relativeLate(due, ref) || 'Overdue' });
+  else if(isDone) pill = el('span', { cls:'pill done', text:'Done today' });
+  else pill = el('span', { cls:'pill todo', text:'Due today' });
+
+  card.appendChild(el('div', { cls:'task-head' }, [
+    icon(iconKey(task.icon)),
+    el('div', { cls:'grow' }, [
+      el('div', { cls:'task-title', text: task.name }),
+      el('div', { cls:'row', props:{ style:'margin-top:4px' } }, [
+        pill,
+        el('span', { cls:'tiny muted', text: 'due ' + fmtDate(due) })
+      ])
+    ])
+  ]));
+
+  task.notes.forEach(function(note, ni){
+    var box = el('div', { cls:'note' });
+    if(note.type === 'text'){
+      box.appendChild(el('p', { text: note.text }));
+    } else {
+      if(!note.items.length){ box.appendChild(el('p', { cls:'muted small', text:'(empty checklist)' })); }
+      note.items.forEach(function(item, ii){
+        var cb = el('input', { attrs:{ type:'checkbox' }, props:{ checked: !!item.checked } });
+        cb.addEventListener('change', function(){
+          item.checked = cb.checked;
+          syncCheckedIds(task);
+          save();
+          /* Auto-complete when every checklist item is ticked (§6.3). */
+          if(!isDone && allChecked(task)){
+            markDone(task, due, ref);
+            toast('Completed: ' + task.name);
+            render();
+          } else if(isDone && !cb.checked){
+            render();   // keep the card in sync; completion itself is untouched
+          }
+        });
+        box.appendChild(el('label', { cls:'check' }, [ cb, el('span', { text: item.text }) ]));
+        void ni; void ii;
+      });
+    }
+    card.appendChild(box);
+  });
+
+  card.appendChild(el('div', { cls:'divider' }));
+  if(isDone){
+    card.appendChild(el('button', { cls:'btn block', attrs:{ type:'button' },
+      on:{ click: function(){
+        undoDone(task, due, ref);
+        toast('Undone: ' + task.name);
+        render();
+      } } }, [ icon('ui_undo'), el('span', { text:'Undo' }) ]));
+  } else {
+    card.appendChild(el('button', { cls:'btn done block', attrs:{ type:'button' },
+      on:{ click: function(){
+        markDone(task, due, ref);
+        toast('Completed: ' + task.name);
+        render();
+      } } }, [ icon('ui_check'), el('span', { text:'Mark as done' }) ]));
+  }
+  return card;
+}
+
+/* ---------- Tasks ---------- */
+function renderTasks(ref){
+  if(view.editorId){ renderEditor(ref); return; }
+  setTitle('Tasks', state.tasks.length + (state.tasks.length === 1 ? ' task' : ' tasks'));
+
+  var add = el('button', { cls:'btn icon primary', attrs:{ type:'button', 'aria-label':'New task' },
+    on:{ click: function(){ openEditor('new', ref); } } }, [ icon('ui_plus') ]);
+  topAction.appendChild(add);
+
+  var search = el('input', { cls:'input', attrs:{ type:'search', placeholder:'Search tasks', 'aria-label':'Search tasks' },
+    props:{ value: view.search } });
+  search.addEventListener('input', function(){
+    view.search = search.value;
+    renderTaskList(listHost, ref);
+  });
+  main.appendChild(search);
+
+  var listHost = el('div');
+  main.appendChild(listHost);
+  renderTaskList(listHost, ref);
+}
+
+function renderTaskList(host, ref){
+  clear(host);
+  var q = view.search.trim().toLowerCase();
+  var tasks = state.tasks.filter(function(t){ return !q || t.name.toLowerCase().indexOf(q) !== -1; });
+
+  if(!tasks.length){
+    host.appendChild(el('div', { cls:'empty', props:{ style:'margin-top:16px' },
+      text: state.tasks.length ? 'No task matches that search.' : 'No tasks yet. Tap + to create one.' }));
+    return;
+  }
+
+  groupByIcon(tasks.map(function(t){ return { task:t }; })).forEach(function(g){
+    host.appendChild(el('div', { cls:'group-head' }, [
+      icon(g.icon), el('span', { text: ICON_LABELS[g.icon] || g.icon }),
+      el('span', { cls:'count', text: g.entries.length })
+    ]));
+    g.entries.forEach(function(e){
+      var t = e.task;
+      var st = taskStatus(t, ref);
+      var pillCls = { todo:'todo', pending:'pending', done:'done' }[st.key] || '';
+
+      var row = el('div', { cls:'list-row' + (t.active ? '' : ' inactive') }, [
+        el('div', { cls:'row' }, [
+          icon(iconKey(t.icon)),
+          el('div', { cls:'grow' }, [
+            el('div', { props:{ style:'font-weight:600;overflow-wrap:anywhere' }, text: t.name }),
+            el('div', { cls:'tiny muted', text: recurrenceLabel(t.recurrence) })
+          ]),
+          el('button', { cls:'btn icon ghost', attrs:{ type:'button', 'aria-label':'Edit ' + t.name },
+            on:{ click: function(){ openEditor(t.id, ref); } } }, [ icon('ui_edit') ]),
+          el('button', { cls:'btn icon ghost', attrs:{ type:'button', 'aria-label':'Delete ' + t.name },
+            on:{ click: function(){
+              if(!window.confirm('Delete "' + t.name + '"? This cannot be undone.')) return;
+              state.tasks = state.tasks.filter(function(x){ return x.id !== t.id; });
+              save(); toast('Task deleted'); render();
+            } } }, [ icon('ui_trash') ])
+        ]),
+        el('div', { cls:'row', props:{ style:'margin-top:8px;flex-wrap:wrap' } }, [
+          el('span', { cls:'pill ' + pillCls, text: st.label }),
+          st.due ? el('span', { cls:'tiny muted', text:'due ' + fmtDate(st.due) }) : null
+        ])
+      ]);
+
+      /* Reactivate: only for a cycle already satisfied by a completion
+         entry (CLAUDE.md §7.2). Never deletes anything. */
+      if(st.key === 'dormant' || st.key === 'done'){
+        row.appendChild(el('button', { cls:'btn block', props:{ style:'margin-top:10px' }, attrs:{ type:'button' },
+          on:{ click: function(){
+            reactivate(t, st.due);
+            toast('Reactivated: ' + t.name);
+            render();
+          } } }, [ icon('ui_undo'), el('span', { text:'Reactivate' }) ]));
+      }
+      host.appendChild(row);
+    });
+  });
+}
+
+/* ---------- Task editor ---------- */
+function newId(){
+  if(window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+  var b = new Uint8Array(16);
+  window.crypto.getRandomValues(b);
+  b[6] = (b[6] & 0x0f) | 0x40; b[8] = (b[8] & 0x3f) | 0x80;
+  var hex = [].map.call(b, function(x){ return (x + 0x100).toString(16).slice(1); }).join('');
+  return hex.slice(0,8)+'-'+hex.slice(8,12)+'-'+hex.slice(12,16)+'-'+hex.slice(16,20)+'-'+hex.slice(20);
+}
+
+function openEditor(id, ref){
+  view.editorId = id;
+  view.formError = null;
+  if(id === 'new'){
+    view.draft = {
+      id: newId(), icon:'task', name:'', notes:[],
+      recurrence: { type:'daily', interval:1, startDate: ref, daysOfWeek:[], mode:'dayOfMonth',
+                    dayOfMonth:1, weekdayOrdinal:'1', weekday:1, month:1, day:1, date: ref },
+      createdAt: ref, completions:[], checklistState:{ lastResetDueDate:null, checkedItemIds:[] }, active:true
+    };
+  } else {
+    var t = state.tasks.filter(function(x){ return x.id === id; })[0];
+    if(!t){ view.editorId = null; render(); return; }
+    var d = JSON.parse(JSON.stringify(t));
+    /* Fill in the fields the stored recurrence doesn't carry so the
+       form can switch types without losing what the user typed. */
+    var r = d.recurrence;
+    d.recurrence = {
+      type: r.type,
+      interval: r.interval || 1,
+      startDate: r.startDate || d.createdAt,
+      daysOfWeek: Array.isArray(r.daysOfWeek) ? r.daysOfWeek.slice() : [],
+      mode: r.mode || 'dayOfMonth',
+      dayOfMonth: r.dayOfMonth || 1,
+      weekdayOrdinal: r.weekdayOrdinal != null ? String(r.weekdayOrdinal) : '1',
+      weekday: r.weekday != null ? r.weekday : 1,
+      month: r.month || 1,
+      day: r.day || 1,
+      date: r.date || d.createdAt
+    };
+    view.draft = d;
+  }
+  window.scrollTo(0, 0);
+  render();
+}
+
+function renderEditor(ref){
+  var d = view.draft;
+  var isNew = view.editorId === 'new';
+  setTitle(isNew ? 'New task' : 'Edit task');
+  backBtn.hidden = false;
+
+  if(view.formError) main.appendChild(el('div', { cls:'banner error', text: view.formError }));
+
+  var form = el('div', { cls:'stack' });
+  main.appendChild(form);
+
+  /* --- icon --- */
+  var iconCard = el('div', { cls:'card' }, [
+    el('div', { cls:'small muted', props:{ style:'margin-bottom:10px' }, text:'Icon' })
+  ]);
+  var picker = el('div', { cls:'picker' });
+  ICON_SET.forEach(function(entry){
+    var b = el('button', {
+      attrs:{ type:'button', 'aria-pressed': d.icon === entry.key ? 'true' : 'false' },
+      on:{ click: function(){ d.icon = entry.key; render(); } }
+    }, [ icon(entry.key), el('span', { text: entry.label }) ]);
+    picker.appendChild(b);
+  });
+  iconCard.appendChild(picker);
+  form.appendChild(iconCard);
+
+  /* --- name + active --- */
+  var nameInput = el('input', { cls:'input', attrs:{ type:'text', maxlength:String(LIMITS.name), placeholder:'e.g. Pagar cartão Inter' },
+    props:{ value: d.name } });
+  nameInput.addEventListener('input', function(){ d.name = nameInput.value; });
+
+  var activeBox = el('input', { attrs:{ type:'checkbox' }, props:{ checked: d.active !== false } });
+  activeBox.addEventListener('change', function(){ d.active = activeBox.checked; });
+
+  form.appendChild(el('div', { cls:'card stack' }, [
+    el('label', { cls:'field' }, [ el('span', { text:'Name' }), nameInput ]),
+    el('label', { cls:'check' }, [ activeBox, el('span', { text:'Active (show on Home)' }) ])
+  ]));
+
+  /* --- notes --- */
+  var notesCard = el('div', { cls:'card' }, [
+    el('div', { cls:'spread', props:{ style:'margin-bottom:10px' } }, [
+      el('div', { cls:'small muted', text:'Notes & checklists' })
+    ])
+  ]);
+  if(!d.notes.length){
+    notesCard.appendChild(el('div', { cls:'empty small', text:'No notes. A task can have none.' }));
+  }
+  d.notes.forEach(function(note, ni){
+    var box = el('div', { cls:'note' });
+    box.appendChild(el('div', { cls:'spread' }, [
+      el('span', { cls:'tiny muted', text: note.type === 'text' ? 'Text note' : 'Checklist' }),
+      el('button', { cls:'btn icon ghost', attrs:{ type:'button', 'aria-label':'Remove note' },
+        on:{ click: function(){ d.notes.splice(ni, 1); render(); } } }, [ icon('ui_x') ])
+    ]));
+    if(note.type === 'text'){
+      var ta = el('textarea', { cls:'input', attrs:{ maxlength:String(LIMITS.str), placeholder:'Write your note' },
+        props:{ value: note.text } });
+      ta.addEventListener('input', function(){ note.text = ta.value; });
+      box.appendChild(ta);
+    } else {
+      note.items.forEach(function(item, ii){
+        var inp = el('input', { cls:'input grow', attrs:{ type:'text', maxlength:String(LIMITS.str), placeholder:'Item ' + (ii+1) },
+          props:{ value: item.text } });
+        inp.addEventListener('input', function(){ item.text = inp.value; });
+        box.appendChild(el('div', { cls:'row', props:{ style:'margin-top:8px' } }, [
+          inp,
+          el('button', { cls:'btn icon ghost', attrs:{ type:'button', 'aria-label':'Remove item' },
+            on:{ click: function(){ note.items.splice(ii, 1); render(); } } }, [ icon('ui_x') ])
+        ]));
+      });
+      box.appendChild(el('button', { cls:'btn ghost', props:{ style:'margin-top:8px' }, attrs:{ type:'button' },
+        on:{ click: function(){ note.items.push({ text:'', checked:false }); render(); } } },
+        [ icon('ui_plus'), el('span', { text:'Add item' }) ]));
+    }
+    notesCard.appendChild(box);
+  });
+  notesCard.appendChild(el('div', { cls:'wrap', props:{ style:'margin-top:12px' } }, [
+    el('button', { cls:'btn', attrs:{ type:'button' },
+      on:{ click: function(){ d.notes.push({ type:'text', text:'' }); render(); } } },
+      [ icon('ui_plus'), el('span', { text:'Text note' }) ]),
+    el('button', { cls:'btn', attrs:{ type:'button' },
+      on:{ click: function(){ d.notes.push({ type:'checklist', items:[{ text:'', checked:false }] }); render(); } } },
+      [ icon('ui_plus'), el('span', { text:'Checklist' }) ])
+  ]));
+  form.appendChild(notesCard);
+
+  /* --- recurrence --- */
+  form.appendChild(recurrenceCard(d));
+
+  /* --- save / delete --- */
+  form.appendChild(el('button', { cls:'btn primary block', attrs:{ type:'button' },
+    on:{ click: function(){ saveDraft(ref); } } }, [ icon('ui_check'), el('span', { text:'Save task' }) ]));
+
+  if(!isNew){
+    form.appendChild(el('button', { cls:'btn danger block', attrs:{ type:'button' },
+      on:{ click: function(){
+        if(!window.confirm('Delete "' + d.name + '"? This cannot be undone.')) return;
+        state.tasks = state.tasks.filter(function(x){ return x.id !== d.id; });
+        save(); view.editorId = null; view.draft = null; toast('Task deleted'); render();
+      } } }, [ icon('ui_trash'), el('span', { text:'Delete task' }) ]));
+  }
+}
+
+function selectField(label, value, options, onChange){
+  var sel = el('select', { cls:'input' });
+  options.forEach(function(o){
+    sel.appendChild(el('option', { attrs:{ value:o[0] }, text:o[1] }));
+  });
+  sel.value = String(value);
+  sel.addEventListener('change', function(){ onChange(sel.value); });
+  return el('label', { cls:'field' }, [ el('span', { text:label }), sel ]);
+}
+function numberField(label, value, min, max, onChange){
+  var inp = el('input', { cls:'input', attrs:{ type:'number', min:String(min), max:String(max), inputmode:'numeric' },
+    props:{ value: String(value) } });
+  inp.addEventListener('input', function(){ onChange(inp.value); });
+  return el('label', { cls:'field' }, [ el('span', { text:label }), inp ]);
+}
+function dateField(label, value, onChange){
+  var inp = el('input', { cls:'input', attrs:{ type:'date' }, props:{ value: value || '' } });
+  inp.addEventListener('input', function(){ onChange(inp.value); });
+  return el('label', { cls:'field' }, [ el('span', { text:label }), inp ]);
+}
+
+function recurrenceCard(d){
+  var r = d.recurrence;
+  var card = el('div', { cls:'card stack' }, [
+    el('div', { cls:'small muted', text:'Recurrence' })
+  ]);
+
+  card.appendChild(selectField('Repeats', r.type, [
+    ['once','Once'], ['daily','Daily'], ['weekly','Weekly'], ['monthly','Monthly'], ['yearly','Yearly']
+  ], function(v){ r.type = v; render(); }));
+
+  if(r.type === 'once'){
+    card.appendChild(dateField('Date', r.date, function(v){ r.date = v; }));
+    card.appendChild(el('p', { cls:'tiny muted', text: r.date && isValidDate(r.date) ? recurrenceLabel(r) : '' }));
+    return card;
+  }
+
+  var unit = { daily:'days', weekly:'weeks', monthly:'months', yearly:'years' }[r.type];
+  card.appendChild(numberField('Every N ' + unit, r.interval, 1, 999, function(v){
+    r.interval = Math.max(1, Math.floor(Number(v) || 1));
+  }));
+
+  /* Optional multi-weekday schedule (CLAUDE.md §4.0). Leaving every day off
+     keeps the classic "same weekday as the start date" behavior. */
+  if(r.type === 'weekly'){
+    if(!Array.isArray(r.daysOfWeek)) r.daysOfWeek = [];
+    var picked = r.daysOfWeek;
+    var days = el('div', { cls:'days' });
+    WEEKDAYS_MIN.forEach(function(label, i){
+      var on = picked.indexOf(i) !== -1;
+      days.appendChild(el('button', {
+        cls:'day', text:label,
+        attrs:{ type:'button', 'aria-pressed': on ? 'true' : 'false', 'aria-label': WEEKDAYS[i] },
+        on:{ click: function(){
+          var at = picked.indexOf(i);
+          if(at === -1) picked.push(i); else picked.splice(at, 1);
+          render();
+        } }
+      }));
+    });
+    card.appendChild(el('div', { cls:'field' }, [
+      el('span', { text:'On these weekdays (optional)' }),
+      days,
+      el('p', { cls:'tiny muted', text: picked.length
+        ? 'Due on each selected weekday, in every active week.'
+        : 'None selected — repeats on the same weekday as the start date.' })
+    ]));
+  }
+
+  if(r.type === 'monthly'){
+    card.appendChild(selectField('Monthly rule', r.mode, [
+      ['dayOfMonth','On a day of the month'], ['weekdayOfMonth','On a weekday of the month']
+    ], function(v){ r.mode = v; render(); }));
+
+    if(r.mode === 'dayOfMonth'){
+      card.appendChild(numberField('Day of month', r.dayOfMonth, 1, 31, function(v){
+        r.dayOfMonth = Math.min(31, Math.max(1, Math.floor(Number(v) || 1)));
+      }));
+      card.appendChild(el('p', { cls:'tiny muted',
+        text:'Months shorter than this day clamp to their last day (31 → Feb 28/29).' }));
+    } else {
+      card.appendChild(el('div', { cls:'grid2' }, [
+        selectField('Which', String(r.weekdayOrdinal), [
+          ['1','First'], ['2','Second'], ['3','Third'], ['4','Fourth'], ['last','Last']
+        ], function(v){ r.weekdayOrdinal = v; }),
+        selectField('Weekday', String(r.weekday), WEEKDAYS.map(function(w,i){ return [String(i), w]; }),
+          function(v){ r.weekday = Number(v); })
+      ]));
+    }
+  }
+
+  if(r.type === 'yearly'){
+    card.appendChild(el('div', { cls:'grid2' }, [
+      selectField('Month', String(r.month), MONTHS.map(function(m,i){ return [String(i+1), m]; }),
+        function(v){ r.month = Number(v); }),
+      numberField('Day', r.day, 1, 31, function(v){
+        r.day = Math.min(31, Math.max(1, Math.floor(Number(v) || 1)));
+      })
+    ]));
+    card.appendChild(el('p', { cls:'tiny muted', text:'Feb 29 falls back to Feb 28 in non-leap years.' }));
+  }
+
+  card.appendChild(dateField('Starts on', r.startDate, function(v){ r.startDate = v; }));
+  return card;
+}
+
+function saveDraft(ref){
+  var d = view.draft;
+  var name = (d.name || '').trim();
+  if(!name){ view.formError = 'Give the task a name.'; render(); return; }
+  if(!ICON_LABELS[d.icon]){ view.formError = 'Pick an icon.'; render(); return; }
+
+  var r = d.recurrence;
+  var rec;
+  if(r.type === 'once'){
+    if(!isValidDate(r.date)){ view.formError = 'Pick a valid date for the one-off task.'; render(); return; }
+    rec = { type:'once', date:r.date };
+  } else {
+    if(!isValidDate(r.startDate)){ view.formError = 'Pick a valid start date.'; render(); return; }
+    rec = { type:r.type, interval: Math.max(1, Math.floor(Number(r.interval) || 1)), startDate: r.startDate };
+    if(r.type === 'weekly'){
+      var dows = weekDaysList(r);     // sorted + de-duped; omitted when none picked
+      if(dows) rec.daysOfWeek = dows;
+    }
+    if(r.type === 'monthly'){
+      rec.mode = r.mode;
+      if(r.mode === 'weekdayOfMonth'){ rec.weekdayOrdinal = String(r.weekdayOrdinal); rec.weekday = Number(r.weekday); }
+      else rec.dayOfMonth = Number(r.dayOfMonth);
+    }
+    if(r.type === 'yearly'){ rec.month = Number(r.month); rec.day = Number(r.day); }
+  }
+
+  var notes = d.notes
+    .map(function(n){
+      if(n.type === 'text') return { type:'text', text:(n.text || '').trim() };
+      return { type:'checklist', items:n.items
+        .map(function(i){ return { text:(i.text || '').trim(), checked: !!i.checked }; })
+        .filter(function(i){ return i.text; }) };
+    })
+    .filter(function(n){ return n.type === 'text' ? n.text : n.items.length; });
+
+  var task = {
+    id: d.id, icon: d.icon, name: name, notes: notes, recurrence: rec,
+    createdAt: isValidDate(d.createdAt) ? d.createdAt : ref,
+    completions: Array.isArray(d.completions) ? d.completions : [],
+    checklistState: d.checklistState || { lastResetDueDate:null, checkedItemIds:[] },
+    active: d.active !== false
+  };
+  syncCheckedIds(task);
+
+  var idx = -1;
+  state.tasks.forEach(function(t, i){ if(t.id === task.id) idx = i; });
+  if(idx >= 0) state.tasks[idx] = task; else state.tasks.push(task);
+
+  save();
+  refreshCycles(ref);
+  view.editorId = null; view.draft = null; view.formError = null;
+  toast(idx >= 0 ? 'Task updated' : 'Task created');
+  window.scrollTo(0, 0);
+  render();
+}
+
+/* ---------- Settings ---------- */
+function renderSettings(ref){
+  setTitle('Settings');
+
+  /* Export */
+  var exportCard = el('div', { cls:'card stack' }, [
+    el('div', { props:{ style:'font-weight:600' }, text:'Backup' }),
+    el('p', { cls:'small muted', text:'Everything lives in this browser only. Export a JSON copy whenever it matters.' }),
+    el('button', { cls:'btn primary block', attrs:{ type:'button' }, on:{ click: doExport } },
+      [ icon('ui_download'), el('span', { text:'Export JSON' }) ])
+  ]);
+  main.appendChild(exportCard);
+
+  /* Import */
+  var fileInput = el('input', { attrs:{ type:'file', accept:'application/json,.json' }, cls:'sr' });
+  var importCard = el('div', { cls:'card stack' }, [
+    el('div', { props:{ style:'font-weight:600' }, text:'Restore' }),
+    el('p', { cls:'small muted', text:'Pick an exported file. It is validated before anything is written.' }),
+    el('button', { cls:'btn block', attrs:{ type:'button' }, on:{ click: function(){ fileInput.click(); } } },
+      [ icon('ui_upload'), el('span', { text:'Choose JSON file' }) ]),
+    fileInput
+  ]);
+
+  fileInput.addEventListener('change', function(){
+    var f = fileInput.files && fileInput.files[0];
+    if(!f) return;
+    var reader = new FileReader();
+    reader.onerror = function(){ view.pendingImport = { error:'Could not read that file.' }; render(); };
+    reader.onload = function(){
+      var parsed;
+      try { parsed = JSON.parse(String(reader.result)); }
+      catch(e){ view.pendingImport = { error:'That file is not valid JSON.' }; render(); return; }
+      var v = validateData(parsed);
+      if(!v.ok){ view.pendingImport = { error:'Rejected — ' + v.error }; render(); return; }
+      view.pendingImport = { data:v.data, count:v.data.tasks.length, name:f.name };
+      render();
+    };
+    reader.readAsText(f);
+  });
+
+  if(view.pendingImport){
+    if(view.pendingImport.error){
+      importCard.appendChild(el('div', { cls:'banner error', text: view.pendingImport.error }));
+      importCard.appendChild(el('button', { cls:'btn ghost block', attrs:{ type:'button' },
+        on:{ click: function(){ view.pendingImport = null; render(); } } }, [ el('span', { text:'Dismiss' }) ]));
+    } else {
+      var p = view.pendingImport;
+      importCard.appendChild(el('div', { cls:'banner info',
+        text: p.name + ' — ' + p.count + (p.count === 1 ? ' task' : ' tasks') + '. Merge or replace?' }));
+      importCard.appendChild(el('div', { cls:'wrap' }, [
+        el('button', { cls:'btn primary', attrs:{ type:'button' }, on:{ click: function(){ applyImport('merge', ref); } } },
+          [ el('span', { text:'Merge' }) ]),
+        el('button', { cls:'btn danger', attrs:{ type:'button' }, on:{ click: function(){ applyImport('replace', ref); } } },
+          [ el('span', { text:'Replace all' }) ]),
+        el('button', { cls:'btn ghost', attrs:{ type:'button' }, on:{ click: function(){ view.pendingImport = null; render(); } } },
+          [ el('span', { text:'Cancel' }) ])
+      ]));
+    }
+  }
+  main.appendChild(importCard);
+
+  /* Stats / about */
+  var active = state.tasks.filter(function(t){ return t.active; }).length;
+  main.appendChild(el('div', { cls:'card stack' }, [
+    el('div', { props:{ style:'font-weight:600' }, text:'This device' }),
+    el('p', { cls:'small muted', text: state.tasks.length + ' task(s), ' + active + ' active. Stored under the key "ptm_data".' }),
+    el('p', { cls:'small muted', text:'Today is ' + fmtDate(ref) + '. Offline by design: the app makes no network requests.' })
+  ]));
+
+  /* Solution B's shell script appends an offline-cache status card here.
+     Undefined in Solution A (single file, no service worker), where this
+     is a no-op — keeping both builds' logic identical per §15. */
+  if(typeof window.ptmShellStatusCard === 'function'){
+    window.ptmShellRefresh = render;
+    window.ptmShellStatusCard(main);
+  }
+}
+
+function doExport(){
+  var payload = JSON.stringify(state, null, 2);
+  var blob = new Blob([payload], { type:'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = el('a', { attrs:{ href:url, download:'ptm-backup-' + today() + '.json' } });
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+  toast('Backup downloaded');
+}
+
+function applyImport(mode, ref){
+  var incoming = view.pendingImport.data;
+  if(mode === 'replace'){
+    if(!window.confirm('Replace all ' + state.tasks.length + ' local task(s) with ' + incoming.tasks.length + ' imported one(s)?')) return;
+    state = { version:1, settings: incoming.settings || {}, tasks: incoming.tasks };
+  } else {
+    var byId = Object.create(null);
+    state.tasks.forEach(function(t){ byId[t.id] = t; });
+    incoming.tasks.forEach(function(t){ byId[t.id] = t; });
+    var merged = [];
+    state.tasks.forEach(function(t){ if(byId[t.id]){ merged.push(byId[t.id]); byId[t.id] = null; } });
+    incoming.tasks.forEach(function(t){ if(byId[t.id]){ merged.push(byId[t.id]); byId[t.id] = null; } });
+    state = { version:1, settings: Object.assign({}, state.settings, incoming.settings || {}), tasks: merged };
+  }
+  save();
+  refreshCycles(ref);
+  view.pendingImport = null;
+  toast(mode === 'replace' ? 'Data replaced' : 'Data merged');
+  go('home');
+}
+
+/* ============================================================
+   9. Boot + day rollover
+   ============================================================ */
+state = load();
+var currentDay = today();
+refreshCycles(currentDay);
+render();
+
+setInterval(function(){
+  var now = today();
+  if(now !== currentDay){
+    currentDay = now;
+    refreshCycles(now);
+    view.section = null; view.icon = null;
+    render();
+    toast('New day — sections refreshed');
+  }
+}, 20000);
+
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState !== 'visible') return;
+  var now = today();
+  if(now !== currentDay){ currentDay = now; refreshCycles(now); }
+  render();
+});
+
+})();
+</script>
+</body>
+</html>

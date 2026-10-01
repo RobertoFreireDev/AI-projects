@@ -1,0 +1,44 @@
+@if (isEmpty()) {
+  <div class="empty">
+    <p>
+      @if (store.taskCount()) {
+        Nothing scheduled for today. Everything is quiet.
+      } @else {
+        No tasks yet. Create one on the Tasks page, or import your backup from Settings.
+      }
+    </p>
+  </div>
+} @else {
+  @for (section of groups(); track section.key) {
+    <section class="section">
+      <div class="section-head">
+        <span class="dot" [class]="'dot ' + section.key"></span>
+        <h2>{{ section.title }}</h2>
+        @if (section.count) {
+          <span class="count">{{ countLabel(section.count) }}</span>
+        }
+      </div>
+
+      @if (section.count) {
+        <div class="tiles">
+          @for (tile of section.tiles; track tile.icon) {
+            <a
+              class="tile"
+              [class]="'tile ' + section.key"
+              [routerLink]="['/home', section.key, tile.icon]"
+              [attr.aria-label]="
+                section.title + ': ' + iconLabel(tile.icon) + ', ' + countLabel(tile.entries.length)
+              "
+            >
+              <app-icon [name]="tile.icon" />
+              <span class="label">{{ iconLabel(tile.icon) }}</span>
+              <span class="badge">{{ tile.entries.length }}</span>
+            </a>
+          }
+        </div>
+      } @else {
+        <div class="empty">{{ section.empty }}</div>
+      }
+    </section>
+  }
+}

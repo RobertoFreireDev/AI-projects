@@ -1,0 +1,60 @@
+@if (entries().length === 0) {
+  <div class="empty">Nothing left here.</div>
+} @else {
+  @for (entry of entries(); track entry.task.id) {
+    <div class="task-card">
+      <div class="task-head">
+        <app-icon [name]="taskIcon(entry.task)" />
+        <div class="grow">
+          <div class="task-title">{{ entry.task.name }}</div>
+          <div class="row pill-row">
+            <span [class]="pill(entry).cls">{{ pill(entry).text }}</span>
+            <span class="tiny muted">due {{ fmtDate(entry.due) }}</span>
+          </div>
+        </div>
+      </div>
+
+      @for (note of entry.task.notes; track $index) {
+        <div class="note">
+          @if (note.type === 'text') {
+            <p>{{ note.text }}</p>
+          } @else {
+            @if (note.items.length === 0) {
+              <p class="muted small">(empty checklist)</p>
+            }
+            @for (item of note.items; track $index; let i = $index) {
+              <label class="check">
+                <input
+                  type="checkbox"
+                  [checked]="item.checked"
+                  (change)="onToggle(entry, checklistOf(note), i, $event)"
+                />
+                <span>{{ item.text }}</span>
+              </label>
+            }
+          }
+        </div>
+      }
+
+      <div class="divider"></div>
+
+      @if (isDone()) {
+        <button class="btn block" type="button" (click)="undo(entry)">
+          <app-icon name="ui_undo" />
+          <span>Undo</span>
+        </button>
+      } @else {
+        <button class="btn done block" type="button" (click)="markDone(entry)">
+          <app-icon name="ui_check" />
+          <span>Mark as done</span>
+        </button>
+      }
+    </div>
+  }
+}
+
+<div class="fab-space"></div>
+<a class="btn block" routerLink="/home">
+  <app-icon name="ui_back" />
+  <span>Back to Home</span>
+</a>

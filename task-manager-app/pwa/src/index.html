@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!--
+      CLAUDE.md §9, adjusted for a bundled app. Angular ships real script and
+      stylesheet files rather than Solution A's inline blocks, so this is
+      strictly tighter than Solution A's policy: scripts are 'self' only, with
+      no inline script and no inline event handler anywhere in the output.
+      (That is why critical-CSS inlining is switched off in angular.json — it
+      emits a `<link onload="...">`, which this policy would rightly block,
+      leaving the app half-styled.)
+
+      'unsafe-inline' remains for styles because Angular writes component
+      styles into <style> elements at runtime when a component declares any.
+
+      Every source is same-origin; no third-party origin is reachable from
+      this page (§15).
+
+        manifest-src  the browser reading manifest.webmanifest
+        worker-src    registering ngsw-worker.js
+        connect-src   the service worker fetching same-origin shell files
+
+      `frame-ancestors` is deliberately absent: browsers ignore it in a
+      <meta> CSP and log an error for it, so it would be noise, not policy.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'none';"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0e1014" />
+    <title>Task Manager</title>
+
+    <!-- Relative, so the built app runs from any path a static server puts it
+         on — pair with the router's hash location (see app.config.ts). -->
+    <base href="./" />
+
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icon-192.png" sizes="192x192" type="image/png" />
+
+    <!-- iOS Safari: Share -> Add to Home Screen launches full-screen (§14.3).
+         Safari ignores the manifest for this, hence the legacy meta tags. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Tasks" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
+  </head>
+  <body>
+    <app-root></app-root>
+    <noscript>Please enable JavaScript to continue using this application.</noscript>
+  </body>
+</html>

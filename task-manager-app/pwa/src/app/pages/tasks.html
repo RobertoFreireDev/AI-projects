@@ -1,0 +1,70 @@
+<input
+  class="input"
+  type="search"
+  placeholder="Search tasks"
+  aria-label="Search tasks"
+  [value]="search()"
+  (input)="onSearch($event)"
+/>
+
+@if (groups().length === 0) {
+  <div class="empty spaced">
+    @if (store.taskCount()) {
+      No task matches that search.
+    } @else {
+      No tasks yet. Tap + to create one.
+    }
+  </div>
+}
+
+@for (group of groups(); track group.icon) {
+  <div class="group-head">
+    <app-icon [name]="group.icon" />
+    <span>{{ iconLabel(group.icon) }}</span>
+    <span class="count">{{ group.entries.length }}</span>
+  </div>
+
+  @for (entry of group.entries; track entry.task.id) {
+    @let task = entry.task;
+    @let st = status(task);
+    <div class="list-row" [class.inactive]="!task.active">
+      <div class="row">
+        <app-icon [name]="taskIcon(task)" />
+        <div class="grow">
+          <div class="list-title">{{ task.name }}</div>
+          <div class="tiny muted">{{ recurrenceLabel(task.recurrence) }}</div>
+        </div>
+        <button
+          class="btn icon ghost"
+          type="button"
+          [attr.aria-label]="'Edit ' + task.name"
+          (click)="edit(task)"
+        >
+          <app-icon name="ui_edit" />
+        </button>
+        <button
+          class="btn icon ghost"
+          type="button"
+          [attr.aria-label]="'Delete ' + task.name"
+          (click)="remove(task)"
+        >
+          <app-icon name="ui_trash" />
+        </button>
+      </div>
+
+      <div class="row status-row">
+        <span [class]="pillClass(st)">{{ st.label }}</span>
+        @if (st.due) {
+          <span class="tiny muted">due {{ fmtDate(st.due) }}</span>
+        }
+      </div>
+
+      @if ((st.key === 'dormant' || st.key === 'done') && st.due) {
+        <button class="btn block spaced-sm" type="button" (click)="reactivate(task, st.due)">
+          <app-icon name="ui_undo" />
+          <span>Reactivate</span>
+        </button>
+      }
+    </div>
+  }
+}
